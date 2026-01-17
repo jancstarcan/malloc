@@ -1,0 +1,9 @@
+#include <stddef.h>
+
+#ifndef MACRO
+#define MACRO
+void* malloc(size_t size);
+void free(void* ptr);
+void* realloc(void* ptr, size_t size);
+void* calloc(size_t size, size_t n);
+#endif
