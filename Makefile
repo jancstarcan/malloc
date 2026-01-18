@@ -1,6 +1,6 @@
 CXX = gcc
 FLAGS = -D_GNU_SOURCE -O3 -std=c11
-DEBUG = -D_GNU_SOURCE -std=c11 -Wall -Wextra -Wpedantic -ggdb
+DEBUG = -D_GNU_SOURCE -DDEBUG -std=c11 -Wall -Wextra -Wpedantic -ggdb
 PREFLAGS = -E
 
 TARGET = test.bin
@@ -12,11 +12,11 @@ OBJDIR = .obj
 SRC = $(wildcard $(SRCDIR)/*.c)
 OBJ = $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SRC))
 
-all: CXXFLAGS = $(DEBUG)
-all: $(TARGET)
+debug: CXXFLAGS = $(DEBUG)
+debug: $(TARGET)
 
-normal: CXXFLAGS = $(FLAGS)
-normal: $(TARGET)
+release: CXXFLAGS = $(FLAGS)
+release: $(TARGET)
 
 pre: CXXFLAGS = $(PREFLAGS)
 pre: $(TARGET)
