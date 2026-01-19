@@ -1,8 +1,8 @@
 #include "interface.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
-// Moves block_ptr backwards and removes the previous block from the free list
 void coalesce_prev(Header** header_ptr) {
 	Header* header = *header_ptr;
 	Header* prev = (uint8_t*)header >= (uint8_t*)heap_start + MIN_BLOCK_SIZE
@@ -30,7 +30,6 @@ void coalesce_prev(Header** header_ptr) {
 	*header_ptr = prev;
 }
 
-// Grows header and removes next block from the free list
 void coalesce_next(Header* header) {
 	Header* next = NEXT_HEADER(header);
 
@@ -58,7 +57,7 @@ void shrink_block(Header* header, size_t size) {
 	size_t leftover = old_size - size;
 
 	if (leftover >= MIN_BLOCK_SIZE) {
-		header->size = SET_XUSED(size);
+		header->size = CLR_FLAGS(size);
 		size_t* footer = FOOTER(header);
 		*footer = size;
 
@@ -90,11 +89,11 @@ _Bool try_grow_in_place(Header* header, size_t size) {
 	if (tot_size - size < MIN_PAYLOAD) {
 		// The entire next block gets absorbed
 		tot_size = HEADER_SIZE + tot_size + FOOTER_SIZE;
-		header->size = SET_XUSED(tot_size);
+		header->size = CLR_FLAGS(tot_size);
 		*FOOTER(header) = tot_size;
 	} else {
 		// The next block gets split
-		header->size = SET_XUSED(size);
+		header->size = CLR_FLAGS(size);
 		*FOOTER(header) = size;
 
 		next_size = tot_size - size;
@@ -140,7 +139,7 @@ void* malloc_block(size_t size) {
 		size = GET_SIZE(free_block);
 	}
 
-	free_block->size = SET_XUSED(size);
+	free_block->size = CLR_FLAGS(size);
 	*FOOTER(free_block) = size;
 
 #ifdef DEBUG

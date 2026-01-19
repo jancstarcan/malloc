@@ -1,7 +1,7 @@
 #include <stddef.h>
 
-#ifndef MACRO
-#define MACRO
+#ifndef MALLOC_PUBLIC_HEADER
+#define MALLOC_PUBLIC_HEADER
 void* malloc(size_t size);
 void free(void* ptr);
 void* realloc(void* ptr, size_t size);

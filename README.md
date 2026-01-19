@@ -4,16 +4,17 @@
 - sbrk heap
 - mmap for large allocations
 - coalescing
-- debug mode checks
+- debug mode checks (heap/free consistency)
 
 ## Block layout
-\[header\]\[payload\]\[footer\]
 
-# Invariants
+Normal:
+\[header]\[payload]\[footer]
 
-- Free blocks __must__ be in the free list
-- Allocated blocks __must not__ be in the free list
-- Headers and footers must always match
+## Invariants
+- All blocks in the free list are free
+- Allocated blocks must not be in the free list
+- Headers and footers must match for heap blocks
 - The free list must not include duplicates
 - Blocks must not overlap
 
@@ -30,9 +31,8 @@ Singly linked, first-fit
 ## Debugging
 - heap_check
 - free_check
-- canaries
-- poisoning
 
 ## TODO
+- canaries
+- poisoning
 - bins
-

@@ -53,9 +53,7 @@ void free(void* ptr) {
 	coalesce_next(header);
 	add_to_free(header);
 
-#ifdef DEBUG
-	heap_check();
-#endif
+	RUN_CHECKS();
 }
 
 void* realloc(void* ptr, size_t size) {
@@ -78,16 +76,12 @@ void* realloc(void* ptr, size_t size) {
 	} else if (size < old_size) {
 		shrink_block(header, size);
 
-#ifdef DEBUG
-		heap_check();
-#endif
+		RUN_CHECKS();
 		return ptr;
 	}
 
 	if (try_grow_in_place(header, size)) {
-#ifdef DEBUG
-		heap_check();
-#endif
+		RUN_CHECKS();
 		return ptr;
 	}
 
@@ -100,9 +94,7 @@ void* realloc(void* ptr, size_t size) {
 	memcpy(new_ptr, ptr, old_size);
 	free(ptr);
 
-#ifdef DEBUG
-	heap_check();
-#endif
+	RUN_CHECKS();
 	return new_ptr;
 }
 
@@ -121,9 +113,6 @@ void* calloc(size_t size, size_t n) {
 
 	memset(ptr, 0, tot_size);
 
-#ifdef DEBUG
-	heap_check();
-#endif
-
+	RUN_CHECKS();
 	return ptr;
 }

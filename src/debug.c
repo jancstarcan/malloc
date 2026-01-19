@@ -2,15 +2,16 @@
 
 #include <assert.h>
 
-// Heap validation, only in debug mode
+void debug_test(void) {
+	heap_check();
+	free_check();
+}
+
 void heap_check(void) {
 	Header* cur = (Header*)heap_start;
 	while ((void*)cur < heap_end) {
 		size_t size = GET_SIZE(cur);
 		size_t footer_value = *FOOTER(cur);
-
-		// fprintf(stderr, "Block at %p: size = %zu, footer = %zu\n",
-		// (void*)cur, size, footer_value);
 
 		assert(size % ALIGNMENT == 0);
 		assert(footer_value == size);
@@ -18,3 +19,15 @@ void heap_check(void) {
 		cur = NEXT_HEADER(cur);
 	}
 }
+
+void free_check(void) {
+	Header* cur = free_list;
+	while (cur) {
+		assert(IS_FREE(cur));
+		cur = cur->next;
+	}
+}
+
+void canary_check(void) {}
+
+void free_corruption_check(void) {}

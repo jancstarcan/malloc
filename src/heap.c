@@ -2,6 +2,7 @@
 
 #include <sys/mman.h>
 #include <unistd.h>
+#include <stdio.h>
 
 void* heap_start;
 void* heap_end;
@@ -87,7 +88,7 @@ void* mmap_alloc(size_t size) {
 	}
 
 	Header* header = (Header*)new;
-	header->size = SET_MMAP(SET_USED(size));
+	header->size = SET_MMAP(CLR_FREE(size));
 
 	return (void*)((uint8_t*)new + HEADER_SIZE);
 }
