@@ -4,26 +4,24 @@
 - sbrk heap
 - mmap for large allocations
 - coalescing
-- debug mode checks (heap/free consistency)
+- debug mode:
+  - heap and free list consistency checks
+  - canaries
 
 ## Block layout
 
 Normal:
-\[header]\[payload]\[footer]
+[header][payload][footer]
 
-## Invariants
-- All blocks in the free list are free
-- Allocated blocks must not be in the free list
-- Headers and footers must match for heap blocks
-- The free list must not include duplicates
-- Blocks must not overlap
+Debug:
+[header][payload][canary][footer]
 
 ## Free list
 Singly linked, first-fit
 
 ## Build
 - __make debug__ for debug mode, compiler checks and debugging labels
-- __make__ for the optimized build
+- __make release__ for the optimized build
 
 ## Tests
 ./test.bin
@@ -31,8 +29,8 @@ Singly linked, first-fit
 ## Debugging
 - heap_check
 - free_check
+- check_canary
 
 ## TODO
-- canaries
 - poisoning
 - bins
