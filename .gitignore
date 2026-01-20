@@ -1,3 +1,5 @@
 *.o
 *.bin
 .old
+.cache
+compile_commands.json

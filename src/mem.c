@@ -10,10 +10,17 @@ void* malloc(size_t size) {
 
 	size = ALIGN_UP(size);
 
-	if (size >= MMAP_THRESHOLD)
-		return mmap_alloc(size);
+	if (size >= MMAP_THRESHOLD) {
+		void* p = mmap_alloc(size);
+		write_canary(HEADER(p));
+		return p;
+	}
 
-	return malloc_block(size);
+	void* p = malloc_block(size);
+	Header* h = HEADER(p);
+	write_canary(h);
+
+	return p;
 }
 
 void free(void* ptr) {
@@ -21,6 +28,7 @@ void free(void* ptr) {
 		return;
 
 	Header* header = HEADER(ptr);
+	check_canary(header);
 
 	// Debug mode check for pointer validity
 #ifdef DEBUG
@@ -76,11 +84,13 @@ void* realloc(void* ptr, size_t size) {
 	} else if (size < old_size) {
 		shrink_block(header, size);
 
+		write_canary(header);
 		RUN_CHECKS();
 		return ptr;
 	}
 
 	if (try_grow_in_place(header, size)) {
+		write_canary(header);
 		RUN_CHECKS();
 		return ptr;
 	}
@@ -94,7 +104,9 @@ void* realloc(void* ptr, size_t size) {
 	memcpy(new_ptr, ptr, old_size);
 	free(ptr);
 
+	write_canary(HEADER(new_ptr));
 	RUN_CHECKS();
+
 	return new_ptr;
 }
 
@@ -113,6 +125,8 @@ void* calloc(size_t size, size_t n) {
 
 	memset(ptr, 0, tot_size);
 
+	write_canary(HEADER(ptr));
 	RUN_CHECKS();
+
 	return ptr;
 }

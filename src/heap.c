@@ -22,7 +22,7 @@ _Bool init_heap() {
 
 	heap_end = sbrk(0);
 
-	size_t payload = heap_size - HEADER_SIZE - FOOTER_SIZE;
+	size_t payload = heap_size - HEADER_SIZE - CANARY_SIZE - FOOTER_SIZE;
 
 	free_list = (Header*)heap_start;
 	free_list->size = SET_XFREE(payload);
@@ -51,7 +51,7 @@ _Bool grow_heap() {
 
 	size_t* last_footer = (size_t*)((uint8_t*)old_end - FOOTER_SIZE);
 	Header* last_header =
-		(Header*)((uint8_t*)last_footer - *last_footer - HEADER_SIZE);
+		(Header*)((uint8_t*)last_footer - CANARY_SIZE - *last_footer - HEADER_SIZE);
 
 	// If the last block is free it gets extended
 	// Otherwise a new one is created
@@ -61,7 +61,7 @@ _Bool grow_heap() {
 		*FOOTER(last_header) = new_size;
 	} else {
 		Header* new_header = (Header*)old_end;
-		size_t new_size = heap_size - HEADER_SIZE - FOOTER_SIZE;
+		size_t new_size = heap_size - HEADER_SIZE - CANARY_SIZE - FOOTER_SIZE;
 		new_header->size = SET_XFREE(new_size);
 		*FOOTER(new_header) = new_size;
 		new_header->next = free_list;
@@ -76,7 +76,7 @@ _Bool grow_heap() {
 // should only be used on big chunks
 void* mmap_alloc(size_t size) {
 	size = ALIGN_UP(size);
-	size_t tot_size = size + HEADER_SIZE;
+	size_t tot_size = size + HEADER_SIZE + CANARY_SIZE;
 	void* new = mmap(NULL, tot_size, PROT_WRITE | PROT_READ,
 					 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
@@ -94,7 +94,7 @@ void* mmap_alloc(size_t size) {
 }
 
 void mmap_free(Header* header) {
-	size_t size = HEADER_SIZE + GET_SIZE(header);
+	size_t size = HEADER_SIZE + GET_SIZE(header) + CANARY_SIZE;
 
 	if (munmap((void*)header, size) == -1) {
 #ifdef DEBUG

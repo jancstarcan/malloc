@@ -15,12 +15,12 @@ void shrink(void);
 void grow(void);
 
 int main(void) {
-	// integrity_test();
-	// exhaustion();
+	integrity_test();
+	exhaustion();
 	rand_test();
-	// mmap_test();
-	// shrink();
-	// grow();
+	mmap_test();
+	shrink();
+	grow();
 
 	return 0;
 }

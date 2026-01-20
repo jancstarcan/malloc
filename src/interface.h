@@ -54,7 +54,7 @@ extern void* heap_end;
 extern size_t heap_size;
 extern _Bool heap_initialized;
 
-#define MMAP_THRESHOLD 131072
+#define MMAP_THRESHOLD (128 * 1024)
 #define INITIAL_HEAP_SIZE 4096
 
 #define ALIGNMENT sizeof(max_align_t)
@@ -63,20 +63,23 @@ extern _Bool heap_initialized;
 #define HEADER_SIZE ALIGN_UP(sizeof(Header))
 #define FOOTER_SIZE ALIGN_UP(sizeof(size_t))
 
+
 #ifdef DEBUG
+#define CANARY_BYTE 0xEF
 #define CANARY_SIZE ALIGN_UP(sizeof(size_t))
-#define ENABLE_CANARIES 1
+#define ENABLE_CANARIES
 #else
 #define CANARY_SIZE 0
 #endif
 
 #define MIN_PAYLOAD (2 * ALIGNMENT)
-#define MIN_BLOCK_SIZE (HEADER_SIZE + MIN_PAYLOAD + FOOTER_SIZE)
+#define MIN_BLOCK_SIZE (HEADER_SIZE + MIN_PAYLOAD + CANARY_SIZE + FOOTER_SIZE)
 
 #define FREE_BIT 0x1
 #define MMAP_BIT 0x2
 
-#define SIZE_MASK (~(ALIGNMENT - 1))
+#define FLAG_MASK ((size_t)(ALIGNMENT - 1))
+#define SIZE_MASK (~FLAG_MASK)
 #define FREE_MASK (~FREE_BIT)
 #define MMAP_MASK (~MMAP_BIT)
 
@@ -112,13 +115,17 @@ extern _Bool heap_initialized;
 #define SET_XFREE(s) (SET_FREE(CLR_FLAGS((s))))
 #define SET_XMMAP(s) (SET_MMAP(CLR_FLAGS((s))))
 
+#define CANARY(b) ((uint8_t*)((uint8_t*)b + HEADER_SIZE + GET_SIZE(b)))
 #define HEADER(p) ((Header*)((uint8_t*)(p) - HEADER_SIZE))
-#define FOOTER(b) ((size_t*)((uint8_t*)(b) + HEADER_SIZE + GET_SIZE(b)))
+#define FOOTER(b)                                                              \
+	((size_t*)((uint8_t*)(b) + HEADER_SIZE + GET_SIZE(b) + CANARY_SIZE))
 #define PREV_FOOTER(b) ((size_t*)((uint8_t*)(b) - FOOTER_SIZE))
 #define PREV_HEADER(b)                                                         \
-	((Header*)((uint8_t*)PREV_FOOTER(b) - *PREV_FOOTER(b) - HEADER_SIZE))
+	((Header*)((uint8_t*)PREV_FOOTER(b) - CANARY_SIZE - *PREV_FOOTER(b) -      \
+			   HEADER_SIZE))
 #define NEXT_HEADER(b)                                                         \
-	((Header*)((uint8_t*)(b) + HEADER_SIZE + GET_SIZE(b) + FOOTER_SIZE))
+	((Header*)((uint8_t*)(b) + HEADER_SIZE + GET_SIZE(b) + CANARY_SIZE +       \
+			   FOOTER_SIZE))
 
 // Function declarations
 
@@ -131,10 +138,10 @@ extern _Bool heap_initialized;
 
 // debug.c
 void debug_test(void);
+void write_canary(Header* h);
+void check_canary(Header* h);
 void heap_check(void);
 void free_check(void);
-void canary_check(void);
-void poisoning_check(void);
 
 #ifdef DEBUG
 #define RUN_CHECKS() debug_test()
