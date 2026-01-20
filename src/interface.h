@@ -14,8 +14,8 @@
  *
  * Header->size encodes:
  *   - payload size (aligned)
- *   - FREE_BIT (is free)
  *   - MMAP_BIT (is allocated with mmap)
+ *   - FREE_BIT (is free)
  *
  * Block layout:
  *
@@ -23,11 +23,11 @@
  *     [ Header | Payload | Footer ]
  *
  *   DEBUG:
- *     [ Header | Payload | Canaries | Footer ]
+ *     [ Header | Payload | Canary | Footer ]
  *
  * Invariants:
  *   - Free blocks must be in the free list
- *   - Header and footers must always match
+ *   - Header and footer must always match
  *   - The free list must not include duplicates
  *   - Footer stores payload size WITHOUT flags.
  *   - All blocks are ALIGNMENT-aligned
@@ -84,14 +84,6 @@ extern _Bool heap_initialized;
 #define MMAP_MASK (~MMAP_BIT)
 
 /*
- * Pointer macros assume:
- *   - Valid, in-heap block headers
- *   - Intact headers and footers
- *   - Undefined behavior if heap is corrupted
- *   - PREV_HEADER assumes a valid footer before the block
- */
-
-/*
  * GET_SIZE(b): extract payload size from header
  * CLR_FLAGS(s): extract payload size from raw size_t
  */
@@ -115,21 +107,33 @@ extern _Bool heap_initialized;
 #define SET_XFREE(s) (SET_FREE(CLR_FLAGS((s))))
 #define SET_XMMAP(s) (SET_MMAP(CLR_FLAGS((s))))
 
-#define CANARY(b) ((uint8_t*)((uint8_t*)b + HEADER_SIZE + GET_SIZE(b)))
+/*
+ * Pointer macros assume:
+ *   - (h): a pointer to a header
+ *   - (s): a pointer to a size_t
+ *   - Intact headers and footers
+ *   - Undefined behavior if heap is corrupted
+ *   - PREV_ HEADER/FOOTER assume it's not the first block
+ *   - NEXT_ HEADER/FOOTER assume it's not the last block
+ *
+ * These macros will gladly read junk if the wrong pointer is provided
+ */
+
 #define HEADER(p) ((Header*)((uint8_t*)(p) - HEADER_SIZE))
-#define FOOTER(b)                                                              \
-	((size_t*)((uint8_t*)(b) + HEADER_SIZE + GET_SIZE(b) + CANARY_SIZE))
-#define PREV_FOOTER(b) ((size_t*)((uint8_t*)(b) - FOOTER_SIZE))
-#define PREV_HEADER(b)                                                         \
-	((Header*)((uint8_t*)PREV_FOOTER(b) - CANARY_SIZE - *PREV_FOOTER(b) -      \
+#define CANARY(h) ((uint8_t*)((uint8_t*)h + HEADER_SIZE + GET_SIZE(h)))
+#define FOOTER(h)                                                              \
+	((size_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE))
+#define PREV_FOOTER(h) ((size_t*)((uint8_t*)(h) - FOOTER_SIZE))
+#define PREV_HEADER(h)                                                         \
+	((Header*)((uint8_t*)PREV_FOOTER(h) - CANARY_SIZE - *PREV_FOOTER(h) -      \
 			   HEADER_SIZE))
-#define NEXT_HEADER(b)                                                         \
-	((Header*)((uint8_t*)(b) + HEADER_SIZE + GET_SIZE(b) + CANARY_SIZE +       \
+#define NEXT_HEADER(h)                                                         \
+	((Header*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE +       \
 			   FOOTER_SIZE))
 
-// Function declarations
-
 /*
+ * Function delarations
+ * 
  * Notes:
  *   - grow_heap doubles sbrk heap size
  *   - coalesce_* remove merged neighbors from free_list
