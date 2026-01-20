@@ -8,10 +8,12 @@
 
 ## Block layout
 - Normal:
-  | Header | Payload | Footer |
+   | Header | Payload | Footer |
+   |--------|---------|--------|
 
 - Debug:
-  | Header | Payload | Canary | Footer |
+   | Header | Payload | Canary | Footer |
+   |--------|---------|--------|--------|
 
 ## Flag encoding
 - There are two flags encoded in the lowest bits of the header's size:
