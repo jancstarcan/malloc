@@ -73,13 +73,13 @@ void shrink_block(Header* header, size_t size) {
 	}
 }
 
-_Bool try_grow_in_place(Header* header, size_t size) {
-	size_t old_size = GET_SIZE(header);
+_Bool try_grow_in_place(Header* h, size_t size) {
+	size_t old_size = GET_SIZE(h);
 
-	if ((void*)((uint8_t*)FOOTER(header) + MIN_BLOCK_SIZE) >= heap_end)
+	if ((void*)((uint8_t*)FOOTER(h) + MIN_BLOCK_SIZE) >= heap_end)
 		return 0;
 
-	Header* next = NEXT_HEADER(header);
+	Header* next = NEXT_HEADER(h);
 	size_t next_size = GET_SIZE(next);
 	size_t tot_size = old_size + next_size;
 
@@ -90,16 +90,19 @@ _Bool try_grow_in_place(Header* header, size_t size) {
 
 	if (tot_size - size < MIN_PAYLOAD) {
 		// The entire next block gets absorbed
-		tot_size = HEADER_SIZE + tot_size + CANARY_SIZE + FOOTER_SIZE;
-		header->size = CLR_FLAGS(tot_size);
-		*FOOTER(header) = tot_size;
+		tot_size = CANARY_SIZE + FOOTER_SIZE + tot_size + HEADER_SIZE;
+		poison_alloc_area((void*)next, HEADER_SIZE + next_size);
+		h->size = CLR_FLAGS(tot_size);
+		*FOOTER(h) = tot_size;
 	} else {
 		// The next block gets split
-		header->size = CLR_FLAGS(size);
-		*FOOTER(header) = size;
+		h->size = CLR_FLAGS(size);
+		*FOOTER(h) = size;
+		void* new_start = (uint8_t*)PAYLOAD(h) + old_size;
+		poison_alloc_area(new_start, size - old_size);
 
 		next_size = tot_size - size;
-		next = NEXT_HEADER(header);
+		next = NEXT_HEADER(h);
 		next->size = SET_XFREE(next_size);
 		*FOOTER(next) = next_size;
 

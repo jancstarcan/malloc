@@ -15,6 +15,7 @@ void* malloc(size_t size) {
 	if (size >= MMAP_THRESHOLD) {
 		void* p = mmap_alloc(size);
 		write_canary(HEADER(p));
+		poison_alloc(p);
 
 		mmap_bytes += size;
 		mmap_allocs++;
@@ -23,8 +24,8 @@ void* malloc(size_t size) {
 	}
 
 	void* p = malloc_block(size);
-	Header* h = HEADER(p);
-	write_canary(h);
+	write_canary(HEADER(p));
+	poison_alloc(p);
 
 	heap_bytes += size;
 	heap_allocs++;
@@ -48,6 +49,8 @@ void free(void* ptr) {
 		abort();
 	}
 #endif
+
+	poison_free(ptr);
 
 	if (IS_MMAP(header)) {
 		mmap_free(header);
@@ -109,6 +112,8 @@ void* realloc(void* ptr, size_t size) {
 	void* new_ptr = malloc_block(size);
 	if (!new_ptr)
 		return NULL;
+
+	poison_alloc(new_ptr);
 
 	memcpy(new_ptr, ptr, old_size);
 	free(ptr);

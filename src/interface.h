@@ -66,8 +66,11 @@ extern _Bool heap_initialized;
 
 #ifdef DEBUG
 #define CANARY_BYTE 0xEF
+#define POISON_FREE_BYTE 0xDE
+#define POISON_ALLOC_BYTE 0xAA
 #define CANARY_SIZE ALIGN_UP(sizeof(size_t))
 #define ENABLE_CANARIES
+#define ENABLE_POISONING
 #else
 #define CANARY_SIZE 0
 #endif
@@ -120,9 +123,10 @@ extern _Bool heap_initialized;
  */
 
 #define HEADER(p) ((Header*)((uint8_t*)(p) - HEADER_SIZE))
-#define CANARY(h) ((uint8_t*)((uint8_t*)h + HEADER_SIZE + GET_SIZE(h)))
+#define CANARY(h) ((uint8_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h)))
 #define FOOTER(h)                                                              \
 	((size_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE))
+#define PAYLOAD(h) ((void*)((uint8_t*)(h) + HEADER_SIZE))
 #define PREV_FOOTER(h) ((size_t*)((uint8_t*)(h) - FOOTER_SIZE))
 #define PREV_HEADER(h)                                                         \
 	((Header*)((uint8_t*)PREV_FOOTER(h) - CANARY_SIZE - *PREV_FOOTER(h) -      \
@@ -144,6 +148,10 @@ extern _Bool heap_initialized;
 void debug_test(void);
 void write_canary(Header* h);
 void check_canary(Header* h);
+void poison_free(void* p);
+void poison_alloc(void* p);
+void poison_free_area(void* p, size_t s);
+void poison_alloc_area(void* p, size_t s);
 void heap_check(void);
 void free_check(void);
 
