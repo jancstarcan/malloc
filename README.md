@@ -43,7 +43,6 @@
 ## Known limitations
 - The allocator isn't very efficient once the heap becomes fragmented, cause it uses a first-fit search through the free list
   Two possible fixes would be switching to best-fit (slow), or implementing bins (more complex)
-- It doesn't have
 
 ## TODO
 2. Move header size to the payload:
