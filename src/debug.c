@@ -63,7 +63,7 @@ inline void poison_free_area(void* p, size_t s) {
 	// Skips past the next pointer if in release mode
 #ifndef DEBUG
 	p = (void*)((uint8_t*)p + sizeof(void*));
-	s -= sizeof(void*)
+	s -= sizeof(void*);
 #endif
 
 	memset(p, POISON_FREE_BYTE, s);
