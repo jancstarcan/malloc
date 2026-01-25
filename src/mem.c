@@ -4,7 +4,20 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef DEBUG
 size_t heap_bytes, mmap_bytes, heap_allocs, mmap_allocs;
+static inline void add_alloced(size_t n, _Bool mmap) {
+	if (mmap) {
+		mmap_bytes += n;
+		mmap_allocs++;
+	} else {
+		heap_bytes += n;
+		heap_allocs++;
+	}
+}
+#else
+static inline void add_alloced(size_t n, _Bool mmap) {}
+#endif
 
 void* malloc(size_t size) {
 	if (size == 0)
@@ -17,8 +30,7 @@ void* malloc(size_t size) {
 		write_canary(HEADER(p));
 		poison_alloc(p);
 
-		mmap_bytes += size;
-		mmap_allocs++;
+		add_alloced(size, 1);
 
 		return p;
 	}
@@ -27,9 +39,9 @@ void* malloc(size_t size) {
 	write_canary(HEADER(p));
 	poison_alloc(p);
 
-	heap_bytes += size;
-	heap_allocs++;
+	add_alloced(size, 0);
 
+	RUN_CHECKS();
 	return p;
 }
 
@@ -103,6 +115,7 @@ void* realloc(void* ptr, size_t size) {
 
 	if (try_grow_in_place(header, size)) {
 		write_canary(header);
+		add_alloced(size - old_size, 0);
 		RUN_CHECKS();
 		return ptr;
 	}
@@ -117,6 +130,8 @@ void* realloc(void* ptr, size_t size) {
 
 	memcpy(new_ptr, ptr, old_size);
 	free(ptr);
+
+	add_alloced(size, 0);
 
 	write_canary(HEADER(new_ptr));
 	RUN_CHECKS();
@@ -133,12 +148,20 @@ void* calloc(size_t size, size_t n) {
 	if (tot_size < size * n)
 		return NULL;
 
-	void* ptr = malloc(tot_size);
+	void* ptr;
+
+	if (tot_size >= MMAP_THRESHOLD) {
+		ptr = mmap_alloc(tot_size);
+		add_alloced(tot_size, 1);
+	} else {
+		ptr = malloc_block(tot_size);
+		add_alloced(tot_size, 0);
+	}
+
 	if (!ptr)
 		return NULL;
 
 	memset(ptr, 0, tot_size);
-
 	write_canary(HEADER(ptr));
 	RUN_CHECKS();
 

@@ -22,7 +22,7 @@ inline void check_canary(header_t* h) {
 
 	while (len--) {
 		if (*c++ != w) {
-			fprintf(stderr, "Canry corruption ar %p\n", (void*)h);
+			fprintf(stderr, "Canary corruption ar %p\n", (void*)h);
 			abort();
 		}
 	}
@@ -34,6 +34,7 @@ inline void poison_free(void* p) {
 	// Skips past the next pointer if in release mode
 #ifndef DEBUG
 	p = (void*)((uint8_t*)p + sizeof(void*));
+	s -= sizeof(void*);
 #endif
 
 	if (s == 0 || (s > heap_size && !IS_MMAP(h))) {
@@ -62,6 +63,7 @@ inline void poison_free_area(void* p, size_t s) {
 	// Skips past the next pointer if in release mode
 #ifndef DEBUG
 	p = (void*)((uint8_t*)p + sizeof(void*));
+	s -= sizeof(void*)
 #endif
 
 	memset(p, POISON_FREE_BYTE, s);
