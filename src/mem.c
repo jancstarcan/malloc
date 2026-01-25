@@ -37,7 +37,7 @@ void free(void* ptr) {
 	if (!ptr)
 		return;
 
-	Header* header = HEADER(ptr);
+	header_t* header = HEADER(ptr);
 	check_canary(header);
 
 	// Debug mode check for pointer validity
@@ -86,7 +86,7 @@ void* realloc(void* ptr, size_t size) {
 	if (!ptr)
 		return malloc(size);
 
-	Header* header = HEADER(ptr);
+	header_t* header = HEADER(ptr);
 	size_t old_size = GET_SIZE(header);
 	size = ALIGN_UP(size);
 
@@ -147,20 +147,21 @@ void* calloc(size_t size, size_t n) {
 
 #ifdef DEBUG
 void dump_heap() {
-	Header* h = heap_start;
-	size_t s, f;
+	header_t* h = heap_start;
+	footer_t* f;
+	size_t s;
 
 	printf("Heap:\n");
 	while ((void*)h < heap_end) {
 		s = GET_SIZE(h);
-		f = *FOOTER(h);
+		f = FOOTER(h);
 
 		if (s < MIN_BLOCK_SIZE || s > heap_size) {
 			fprintf(stderr, "CORRUPTED BLOCK at %p\n", (void*)h);
 			abort();
 		}
 
-		if (s != f) {
+		if (s != f->size) {
 			fprintf(stderr, "FOOTER MISMATCH at %p\n", (void*)h);
 			abort();
 		}
@@ -173,8 +174,8 @@ void dump_heap() {
 }
 
 void dump_free_list(void) {
-	Header* prev = NULL;
-	Header* cur = free_list;
+	header_t* prev = NULL;
+	header_t* cur = free_list;
 	int steps = 0;
 
 	printf("Free List:\n");

@@ -10,30 +10,25 @@ void debug_test(void) {
 	free_check();
 }
 
-static inline _Bool cmp_bytes(const size_t* p, size_t len, uint8_t b) {
-	size_t w = (size_t)-1 / 0xFF * b;
-	len /= sizeof(size_t);
-
-	while  (len--) {
-		if (*p++ != w)
-			return 0;
-	}
-
-	return 1;
-}
-
 #ifdef ENABLE_CANARIES
-inline void write_canary(Header* h) {
-	uint8_t* c = CANARY(h);
+inline void write_canary(header_t* h) {
+	size_t* c = CANARY(h);
 	memset(c, CANARY_BYTE, CANARY_SIZE);
 }
-inline void check_canary(Header* h) {
-	uint8_t* c = CANARY(h);
-	for (size_t i = 0; i < CANARY_SIZE; i++)
-		assert(*c++ == CANARY_BYTE);
+inline void check_canary(header_t* h) {
+	size_t* c = CANARY(h);
+	size_t len = ALIGNMENT / sizeof(size_t);
+	size_t w = (size_t)-1 / 0xFF * CANARY_BYTE;
+
+	while (len--) {
+		if (*c++ != w) {
+			fprintf(stderr, "Canry corruption ar %p\n", (void*)h);
+			abort();
+		}
+	}
 }
 inline void poison_free(void* p) {
-	Header* h = HEADER(p);
+	header_t* h = HEADER(p);
 	size_t s = GET_SIZE(h);
 
 	if (s == 0 || (s > heap_size && !IS_MMAP(h))) {
@@ -44,18 +39,12 @@ inline void poison_free(void* p) {
 	memset(p, POISON_FREE_BYTE, s);
 }
 inline void poison_alloc(void* p) {
-	Header* h = HEADER(p);
+	header_t* h = HEADER(p);
 	size_t s = GET_SIZE(h);
 
 	if (s == 0 || (s > heap_size && !IS_MMAP(h))) {
 		fprintf(stderr, "Invalid block size %zu\n", s);
 		fprintf(stderr, "%p\n", p);
-		abort();
-	}
-
-	if (!cmp_bytes((size_t*)p, s, (uint8_t)POISON_FREE_BYTE)) {
-		fprintf(stderr, "Free block corruption detected\n");
-		fprintf(stderr, "%p, %zu bytes long\n", p, s);
 		abort();
 	}
 
@@ -83,20 +72,20 @@ inline void poison_alloc_area(void* p, size_t s) {}
 #endif
 
 void heap_check(void) {
-	Header* cur = (Header*)heap_start;
+	header_t* cur = (header_t*)heap_start;
 	while ((void*)cur < heap_end) {
 		size_t size = GET_SIZE(cur);
-		size_t footer_value = *FOOTER(cur);
+		footer_t* footer = FOOTER(cur);
 
 		assert(size % ALIGNMENT == 0);
-		assert(footer_value == size);
+		assert(footer->size == size);
 
 		cur = NEXT_HEADER(cur);
 	}
 }
 
 void free_check(void) {
-	Header* cur = free_list;
+	header_t* cur = free_list;
 	while (cur) {
 		assert(IS_FREE(cur));
 		cur = cur->next;

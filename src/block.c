@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void coalesce_prev(Header** header_ptr) {
-	Header* cur = *header_ptr;
-	Header* prev = (uint8_t*)cur >= (uint8_t*)heap_start + MIN_BLOCK_SIZE
+void coalesce_prev(header_t** header_ptr) {
+	header_t* cur = *header_ptr;
+	header_t* prev = (uint8_t*)cur >= (uint8_t*)heap_start + MIN_BLOCK_SIZE
 					   ? PREV_HEADER(cur)
 					   : NULL;
 
@@ -26,13 +26,13 @@ void coalesce_prev(Header** header_ptr) {
 	size_t tot_size =
 		prev_size + CANARY_SIZE + FOOTER_SIZE + HEADER_SIZE + cur_size;
 	prev->size = SET_XFREE(tot_size);
-	*FOOTER(prev) = tot_size;
+	FOOTER(prev)->size = tot_size;
 
 	*header_ptr = prev;
 }
 
-void coalesce_next(Header* cur) {
-	Header* next = NEXT_HEADER(cur);
+void coalesce_next(header_t* cur) {
+	header_t* next = NEXT_HEADER(cur);
 
 	if ((uint8_t*)next + HEADER_SIZE > (uint8_t*)heap_end || !IS_FREE(next))
 		return;
@@ -51,35 +51,35 @@ void coalesce_next(Header* cur) {
 	size_t tot_size =
 		cur_size + CANARY_SIZE + FOOTER_SIZE + HEADER_SIZE + next_size;
 	cur->size = SET_XFREE(tot_size);
-	*FOOTER(cur) = tot_size;
+	FOOTER(cur)->size = tot_size;
 }
 
-void shrink_block(Header* header, size_t size) {
+void shrink_block(header_t* header, size_t size) {
 	size_t old_size = GET_SIZE(header);
 	size_t leftover = old_size - size;
 
 	if (leftover >= MIN_BLOCK_SIZE) {
 		header->size = CLR_FLAGS(size);
-		size_t* footer = FOOTER(header);
-		*footer = size;
+		footer_t* footer = FOOTER(header);
+		footer->size = size;
 
-		Header* new_free = (Header*)((uint8_t*)footer + FOOTER_SIZE);
+		header_t* new_free = (header_t*)((uint8_t*)footer + FOOTER_SIZE);
 		size_t new_size = leftover - HEADER_SIZE - CANARY_SIZE - FOOTER_SIZE;
 		new_free->size = SET_XFREE(new_size);
-		*FOOTER(new_free) = new_size;
+		FOOTER(new_free)->size = new_size;
 
 		coalesce_next(new_free);
 		add_to_free(new_free);
 	}
 }
 
-_Bool try_grow_in_place(Header* h, size_t size) {
+_Bool try_grow_in_place(header_t* h, size_t size) {
 	size_t old_size = GET_SIZE(h);
 
 	if ((void*)((uint8_t*)FOOTER(h) + MIN_BLOCK_SIZE) >= heap_end)
 		return 0;
 
-	Header* next = NEXT_HEADER(h);
+	header_t* next = NEXT_HEADER(h);
 	size_t next_size = GET_SIZE(next);
 	size_t tot_size = old_size + next_size;
 
@@ -93,18 +93,18 @@ _Bool try_grow_in_place(Header* h, size_t size) {
 		tot_size = CANARY_SIZE + FOOTER_SIZE + tot_size + HEADER_SIZE;
 		poison_alloc_area((void*)next, HEADER_SIZE + next_size);
 		h->size = CLR_FLAGS(tot_size);
-		*FOOTER(h) = tot_size;
+		FOOTER(h)->size = tot_size;
 	} else {
 		// The next block gets split
 		h->size = CLR_FLAGS(size);
-		*FOOTER(h) = size;
+		FOOTER(h)->size = size;
 		void* new_start = (uint8_t*)PAYLOAD(h) + old_size;
 		poison_alloc_area(new_start, size - old_size);
 
 		next_size = tot_size - size;
 		next = NEXT_HEADER(h);
 		next->size = SET_XFREE(next_size);
-		*FOOTER(next) = next_size;
+		FOOTER(next)->size = next_size;
 
 		add_to_free(next);
 	}
@@ -117,7 +117,7 @@ void* malloc_block(size_t size) {
 		if (!init_heap())
 			return NULL;
 
-	Header* free_block = find_fit(size);
+	header_t* free_block = find_fit(size);
 
 	if (!free_block) {
 		if (!grow_heap())
@@ -132,11 +132,11 @@ void* malloc_block(size_t size) {
 	if (free_size - size >= MIN_BLOCK_SIZE) {
 		// Split case
 		size_t block_size = HEADER_SIZE + size + CANARY_SIZE + FOOTER_SIZE;
-		Header* new_free = (Header*)((uint8_t*)free_block + block_size);
+		header_t* new_free = (header_t*)((uint8_t*)free_block + block_size);
 		size_t new_size = free_size - block_size;
 
 		new_free->size = SET_FREE(new_size);
-		*FOOTER(new_free) = new_size;
+		FOOTER(new_free)->size = new_size;
 
 		add_to_free(new_free);
 	} else {
@@ -145,7 +145,7 @@ void* malloc_block(size_t size) {
 	}
 
 	free_block->size = CLR_FLAGS(size);
-	*FOOTER(free_block) = size;
+	FOOTER(free_block)->size = size;
 
 	return (void*)((uint8_t*)free_block + HEADER_SIZE);
 }

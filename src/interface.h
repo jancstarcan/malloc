@@ -6,6 +6,7 @@
 #ifndef MALLOC_PRIVATE_HEADER
 #define MALLOC_PRIVATE_HEADER
 
+#include <stdalign.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -36,10 +37,14 @@
 typedef struct Header {
 	size_t size;
 	struct Header* next;
-} Header;
+} header_t;
+
+typedef struct {
+	size_t size;
+} footer_t;
 
 // Singly linked list
-extern Header* free_list;
+extern header_t* free_list;
 
 /*
  * Heap state:
@@ -57,12 +62,11 @@ extern _Bool heap_initialized;
 #define MMAP_THRESHOLD (128 * 1024)
 #define INITIAL_HEAP_SIZE 4096
 
-#define ALIGNMENT sizeof(max_align_t)
+#define ALIGNMENT alignof(max_align_t)
 #define ALIGN_UP(x) (((x) + ALIGNMENT - 1) & ~(ALIGNMENT - 1))
 
-#define HEADER_SIZE ALIGN_UP(sizeof(Header))
-#define FOOTER_SIZE ALIGN_UP(sizeof(size_t))
-
+#define HEADER_SIZE ALIGN_UP(sizeof(header_t))
+#define FOOTER_SIZE ALIGN_UP(sizeof(footer_t))
 
 #ifdef DEBUG
 #define CANARY_BYTE 0xCC
@@ -122,22 +126,22 @@ extern _Bool heap_initialized;
  * These macros will gladly read junk if the wrong pointer is provided
  */
 
-#define HEADER(p) ((Header*)((uint8_t*)(p) - HEADER_SIZE))
-#define CANARY(h) ((uint8_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h)))
+#define HEADER(p) ((header_t*)((uint8_t*)(p) - HEADER_SIZE))
+#define CANARY(h) ((size_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h)))
 #define FOOTER(h)                                                              \
-	((size_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE))
+	((footer_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE))
 #define PAYLOAD(h) ((void*)((uint8_t*)(h) + HEADER_SIZE))
-#define PREV_FOOTER(h) ((size_t*)((uint8_t*)(h) - FOOTER_SIZE))
+#define PREV_FOOTER(h) ((footer_t*)((uint8_t*)(h) - FOOTER_SIZE))
 #define PREV_HEADER(h)                                                         \
-	((Header*)((uint8_t*)PREV_FOOTER(h) - CANARY_SIZE - *PREV_FOOTER(h) -      \
-			   HEADER_SIZE))
+	((header_t*)((uint8_t*)PREV_FOOTER(h) - CANARY_SIZE -                      \
+				 PREV_FOOTER(h)->size - HEADER_SIZE))
 #define NEXT_HEADER(h)                                                         \
-	((Header*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE +       \
-			   FOOTER_SIZE))
+	((header_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE +     \
+				 FOOTER_SIZE))
 
 /*
  * Function delarations
- * 
+ *
  * Notes:
  *   - grow_heap doubles sbrk heap size
  *   - coalesce_* remove merged neighbors from free_list
@@ -146,8 +150,8 @@ extern _Bool heap_initialized;
 
 // debug.c
 void debug_test(void);
-void write_canary(Header* h);
-void check_canary(Header* h);
+void write_canary(header_t* h);
+void check_canary(header_t* h);
 void poison_free(void* p);
 void poison_alloc(void* p);
 void poison_free_area(void* p, size_t s);
@@ -165,18 +169,18 @@ void free_check(void);
 _Bool init_heap(void);
 _Bool grow_heap(void);
 void* mmap_alloc(size_t size);
-void mmap_free(Header* header);
+void mmap_free(header_t* header);
 
 // free_list.c
-void add_to_free(Header* header);
-_Bool remove_free(Header* header);
-Header* find_fit(size_t size);
+void add_to_free(header_t* header);
+_Bool remove_free(header_t* header);
+header_t* find_fit(size_t size);
 
 // block.c
-void coalesce_prev(Header** header_ptr);
-void coalesce_next(Header* header);
-void shrink_block(Header* header, size_t size);
-_Bool try_grow_in_place(Header* header, size_t size);
+void coalesce_prev(header_t** header_ptr);
+void coalesce_next(header_t* header);
+void shrink_block(header_t* header, size_t size);
+_Bool try_grow_in_place(header_t* header, size_t size);
 void* malloc_block(size_t size);
 
 // mem.c
