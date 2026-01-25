@@ -9,8 +9,8 @@
 ## Debug mode
 - Consistency checks between header and footer for the entire heap
 - Checks that every block in the free list is marked free
-- Detects some use-after-free errors
 - Enables canaries and payload poisoning
+- Keeps track of how much memory was allocated
 
 ## Block layout
 - Normal:
@@ -34,8 +34,8 @@
 - Singly linked, first-fit
 
 ## Build
-- __make debug__ for debug mode, compiler checks and debugging labels
-- __make release__ for the optimized build
+- __make debug__ - Debug mode with checks, canaries, and stats
+- __make release__ - Optimized production build
 
 ## Tests
 - ./test.bin
@@ -45,7 +45,4 @@
   Two possible fixes would be switching to best-fit (slow), or implementing bins (more complex)
 
 ## TODO
-2. Move header size to the payload:
-   - This would reduce the header's size down to just a size\_t. Might be insignificant depending on max\_align\_t
-3. Bins:
-   - This would greatly improve the allocators performance when the heap is fragmented, while not wasting as much memory as a first-fit approach
+1. Bins: This would greatly improve the allocators performance when the heap is fragmented. Faster than best-fit, wastes less memory than first-fit
