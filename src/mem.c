@@ -182,7 +182,7 @@ void dump_free_list(void) {
 	while (cur) {
 		steps++;
 		printf("prev=0x%p | size=%zu | next=0x%p\n", (void*)prev, GET_SIZE(cur),
-			   (void*)cur->next);
+			   (void*)GET_NEXT(cur));
 
 		if (steps >= 10000) {
 			fprintf(stderr,
@@ -190,7 +190,7 @@ void dump_free_list(void) {
 		}
 
 		prev = cur;
-		cur = cur->next;
+		cur = GET_NEXT(cur);
 	}
 }
 

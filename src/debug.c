@@ -31,6 +31,11 @@ inline void poison_free(void* p) {
 	header_t* h = HEADER(p);
 	size_t s = GET_SIZE(h);
 
+	// Skips past the next pointer if in release mode
+#ifndef DEBUG
+	p = (void*)((uint8_t*)p + sizeof(void*));
+#endif
+
 	if (s == 0 || (s > heap_size && !IS_MMAP(h))) {
 		fprintf(stderr, "Invalid block size %zu\n", s);
 		abort();
@@ -54,6 +59,11 @@ inline void poison_free_area(void* p, size_t s) {
 	if (s == 0)
 		return;
 
+	// Skips past the next pointer if in release mode
+#ifndef DEBUG
+	p = (void*)((uint8_t*)p + sizeof(void*));
+#endif
+
 	memset(p, POISON_FREE_BYTE, s);
 }
 inline void poison_alloc_area(void* p, size_t s) {
@@ -63,8 +73,8 @@ inline void poison_alloc_area(void* p, size_t s) {
 	memset(p, POISON_ALLOC_BYTE, s);
 }
 #else
-inline void write_canary(Header* h) {}
-inline void check_canary(Header* h) {}
+inline void write_canary(header_t* h) {}
+inline void check_canary(header_t* h) {}
 inline void poison_free(void* p) {}
 inline void poison_alloc(void* p) {}
 inline void poison_free_area(void* p, size_t s) {}
@@ -88,6 +98,6 @@ void free_check(void) {
 	header_t* cur = free_list;
 	while (cur) {
 		assert(IS_FREE(cur));
-		cur = cur->next;
+		cur = GET_NEXT(cur);
 	}
 }

@@ -50,7 +50,7 @@ _Bool init_heap() {
 
 	free_list = (header_t*)heap_start;
 	free_list->size = SET_XFREE(payload);
-	free_list->next = NULL;
+	SET_NEXT(free_list, NULL);
 	FOOTER(free_list)->size = payload;
 
 	poison_free(PAYLOAD(free_list));
@@ -91,7 +91,7 @@ _Bool grow_heap() {
 		size_t new_size = heap_size - HEADER_SIZE - CANARY_SIZE - FOOTER_SIZE;
 		new_header->size = SET_XFREE(new_size);
 		FOOTER(new_header)->size = new_size;
-		new_header->next = free_list;
+		SET_NEXT(new_header, free_list);
 		free_list = new_header;
 		payload = PAYLOAD(new_header);
 	}

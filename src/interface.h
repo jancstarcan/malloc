@@ -18,6 +18,13 @@
  *   - MMAP_BIT (is allocated with mmap)
  *   - FREE_BIT (is free)
  *
+ * Free list:
+ *   - Singly-linked
+ *   - First-fit
+ *   - In debug mode the next pointer is part of header_t
+ *   - In release mode it's stored in the payload
+ *   - Either way GET/SET _NEXT should be used
+ *
  * Block layout:
  *
  *   Normal:
@@ -34,16 +41,21 @@
  *   - All blocks are ALIGNMENT-aligned
  */
 
-typedef struct Header {
+#ifdef DEBUG
+typedef struct header {
 	size_t size;
-	struct Header* next;
+	struct header* next;
 } header_t;
+#else
+typedef struct {
+	size_t size;
+} header_t;
+#endif
 
 typedef struct {
 	size_t size;
 } footer_t;
 
-// Singly linked list
 extern header_t* free_list;
 
 /*
@@ -120,11 +132,19 @@ extern _Bool heap_initialized;
  *   - (s): a pointer to a size_t
  *   - Intact headers and footers
  *   - Undefined behavior if heap is corrupted
- *   - PREV_ HEADER/FOOTER assume it's not the first block
- *   - NEXT_ HEADER/FOOTER assume it's not the last block
+ *   - PREV_ HEADER/FOOTER assumes it's not the first block
+ *   - NEXT_ HEADER/FOOTER assumes it's not the last block
  *
  * These macros will gladly read junk if the wrong pointer is provided
  */
+
+#ifdef DEBUG
+#define GET_NEXT(h) ((h)->next)
+#define SET_NEXT(h, n) ((h)->next = n)
+#else
+#define GET_NEXT(h) (*(header_t**)((uint8_t*)(h) + HEADER_SIZE))
+#define SET_NEXT(h, n) (*((header_t**)((uint8_t*)(h) + HEADER_SIZE)) = (n))
+#endif
 
 #define HEADER(p) ((header_t*)((uint8_t*)(p) - HEADER_SIZE))
 #define CANARY(h) ((size_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h)))

@@ -15,7 +15,6 @@ void coalesce_prev(header_t** header_ptr) {
 	if (!remove_free(prev)) {
 #ifdef DEBUG
 		fprintf(stderr, "Block is marked as free but isn't in the free list\n");
-		fflush(stderr);
 		abort();
 #endif
 	}
@@ -40,7 +39,6 @@ void coalesce_next(header_t* cur) {
 	if (!remove_free(next)) {
 #ifdef DEBUG
 		fprintf(stderr, "Block is marked as free but isn't in the free list\n");
-		fflush(stderr);
 		abort();
 #endif
 	}
