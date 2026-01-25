@@ -11,7 +11,7 @@ _Bool remove_free(header_t* header) {
 	header_t** cur = &free_list;
 
 	while (*cur && *cur != header)
-		*cur = GET_NEXT(*cur);
+		cur = &GET_NEXT(*cur);
 
 	if (!*cur)
 		return 0;
@@ -27,7 +27,7 @@ header_t* find_fit(size_t size) {
 		if (GET_SIZE(*cur) >= size)
 			break;
 
-		*cur = GET_NEXT(*cur);
+		cur = &GET_NEXT(*cur);
 	}
 
 	if (!*cur)

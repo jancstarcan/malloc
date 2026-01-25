@@ -12,11 +12,11 @@ OBJDIR = .obj
 SRC = $(wildcard $(SRCDIR)/*.c)
 OBJ = $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SRC))
 
-debug: CXXFLAGS = $(DEBUG)
-debug: $(TARGET)
-
 release: CXXFLAGS = $(FLAGS)
 release: $(TARGET)
+
+debug: CXXFLAGS = $(DEBUG)
+debug: $(TARGET)
 
 pre: CXXFLAGS = $(PREFLAGS)
 pre: $(TARGET)
