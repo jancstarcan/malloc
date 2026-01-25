@@ -1,4 +1,5 @@
 #include "mem.h"
+#include "interface.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

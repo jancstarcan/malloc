@@ -10,6 +10,18 @@ void debug_test(void) {
 	free_check();
 }
 
+static inline _Bool cmp_bytes(const size_t* p, size_t len, uint8_t b) {
+	size_t w = (size_t)-1 / 0xFF * b;
+	len /= sizeof(size_t);
+
+	while  (len--) {
+		if (*p++ != w)
+			return 0;
+	}
+
+	return 1;
+}
+
 #ifdef ENABLE_CANARIES
 inline void write_canary(Header* h) {
 	uint8_t* c = CANARY(h);
@@ -37,6 +49,13 @@ inline void poison_alloc(void* p) {
 
 	if (s == 0 || (s > heap_size && !IS_MMAP(h))) {
 		fprintf(stderr, "Invalid block size %zu\n", s);
+		fprintf(stderr, "%p\n", p);
+		abort();
+	}
+
+	if (!cmp_bytes((size_t*)p, s, (uint8_t)POISON_FREE_BYTE)) {
+		fprintf(stderr, "Free block corruption detected\n");
+		fprintf(stderr, "%p, %zu bytes long\n", p, s);
 		abort();
 	}
 
@@ -46,7 +65,7 @@ inline void poison_free_area(void* p, size_t s) {
 	if (s == 0)
 		return;
 
-	memset(p, POISON_ALLOC_BYTE, s);
+	memset(p, POISON_FREE_BYTE, s);
 }
 inline void poison_alloc_area(void* p, size_t s) {
 	if (s == 0)

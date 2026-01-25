@@ -29,6 +29,7 @@ _Bool init_heap() {
 	free_list->next = NULL;
 	*FOOTER(free_list) = payload;
 
+	poison_free(PAYLOAD(free_list));
 	heap_initialized = 1;
 
 	return 1;
@@ -52,6 +53,7 @@ _Bool grow_heap() {
 	size_t* last_footer = (size_t*)((uint8_t*)old_end - FOOTER_SIZE);
 	Header* last_header =
 		(Header*)((uint8_t*)last_footer - CANARY_SIZE - *last_footer - HEADER_SIZE);
+	void* payload;
 
 	// If the last block is free it gets extended
 	// Otherwise a new one is created
@@ -59,6 +61,7 @@ _Bool grow_heap() {
 		size_t new_size = heap_size + GET_SIZE(last_header);
 		last_header->size = SET_XFREE(new_size);
 		*FOOTER(last_header) = new_size;
+		payload = PAYLOAD(last_header);
 	} else {
 		Header* new_header = (Header*)old_end;
 		size_t new_size = heap_size - HEADER_SIZE - CANARY_SIZE - FOOTER_SIZE;
@@ -66,9 +69,12 @@ _Bool grow_heap() {
 		*FOOTER(new_header) = new_size;
 		new_header->next = free_list;
 		free_list = new_header;
+		payload = PAYLOAD(new_header);
 	}
 
 	heap_size *= 2;
+	poison_free(payload);
+
 	return 1;
 }
 

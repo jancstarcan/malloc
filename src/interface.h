@@ -65,8 +65,8 @@ extern _Bool heap_initialized;
 
 
 #ifdef DEBUG
-#define CANARY_BYTE 0xEF
-#define POISON_FREE_BYTE 0xDE
+#define CANARY_BYTE 0xCC
+#define POISON_FREE_BYTE 0xDD
 #define POISON_ALLOC_BYTE 0xAA
 #define CANARY_SIZE ALIGN_UP(sizeof(size_t))
 #define ENABLE_CANARIES
