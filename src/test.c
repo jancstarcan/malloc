@@ -1,5 +1,5 @@
-#include "mem.h"
 #include "interface.h"
+#include "mem.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,6 +8,7 @@
 
 #define OPS 100000
 
+void fragmentation_test(void);
 void integrity_test(void);
 void exhaustion(void);
 void rand_test(void);
@@ -16,6 +17,7 @@ void shrink(void);
 void grow(void);
 
 int main(void) {
+	fragmentation_test();
 	integrity_test();
 	exhaustion();
 	rand_test();
@@ -26,6 +28,14 @@ int main(void) {
 	print_stats();
 
 	return 0;
+}
+
+void fragmentation_test(void) {
+	for (int i = 0; i < 1000; i++) {
+		void* small = malloc(16);
+		free(small);
+		void* large = malloc(1024);
+	}
 }
 
 void integrity_test(void) {
