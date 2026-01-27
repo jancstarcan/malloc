@@ -19,6 +19,8 @@
  *   - FREE_BIT (is free)
  *
  * Free list:
+ *   - Multiple segregated lists
+ *   - BIN_COUNT lists, up to 63
  *   - Singly-linked
  *   - First-fit
  *   - In debug mode the next pointer is part of header_t
@@ -39,6 +41,7 @@
  *   - The free list must not include duplicates
  *   - Footer stores payload size WITHOUT flags.
  *   - All blocks are ALIGNMENT-aligned
+ *   - mmap allocated blocks don't have footers
  */
 
 #ifdef DEBUG
@@ -56,7 +59,23 @@ typedef struct {
 	size_t size;
 } footer_t;
 
-extern header_t* free_list;
+#define BIN_COUNT 32
+#define BIN_BASE ALIGNMENT
+extern header_t* free_lists[BIN_COUNT];
+
+#if BIN_COUNT <= 8
+typedef uint8_t bins_map_t;
+#elif BIN_COUNT <= 16
+typedef uint16_t bins_map_t;
+#elif BIN_COUNT <= 32
+typedef uint32_t bins_map_t;
+#elif BIN_COUNT < 64
+typedef uint64_t bins_map_t;
+#else
+#error "Too many bins for bitmap"
+#endif
+
+extern bins_map_t bins_map;
 
 /*
  * Heap state:
@@ -101,6 +120,8 @@ extern _Bool heap_initialized;
 #define SIZE_MASK (~FLAG_MASK)
 #define FREE_MASK (~FREE_BIT)
 #define MMAP_MASK (~MMAP_BIT)
+
+#define BIN_BIT(i) ((bins_map_t)1 << (i))
 
 /*
  * GET_SIZE(b): extract payload size from header
@@ -192,8 +213,8 @@ void* mmap_alloc(size_t size);
 void mmap_free(header_t* header);
 
 // free_list.c
-void add_to_free(header_t* header);
-_Bool remove_free(header_t* header);
+void add_to_free(header_t* h);
+_Bool remove_free(header_t* h);
 header_t* find_fit(size_t size);
 
 // block.c

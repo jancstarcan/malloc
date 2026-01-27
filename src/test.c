@@ -1,4 +1,3 @@
-#include "interface.h"
 #include "mem.h"
 #include <assert.h>
 #include <stdint.h>

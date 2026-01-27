@@ -198,22 +198,26 @@ void dump_heap() {
 
 void dump_free_list(void) {
 	header_t* prev = NULL;
-	header_t* cur = free_list;
 	int steps = 0;
 
-	printf("Free List:\n");
-	while (cur) {
-		steps++;
-		printf("prev=0x%p | size=%zu | next=0x%p\n", (void*)prev, GET_SIZE(cur),
-			   (void*)GET_NEXT(cur));
+	for (size_t i = 0; i < BIN_COUNT; i++) {
+		header_t* cur = free_lists[i];
 
-		if (steps >= 10000) {
-			fprintf(stderr,
+		printf("Free List %zu:\n", i);
+		while (cur) {
+			steps++;
+			printf("prev=0x%p | size=%zu | next=0x%p\n", (void*)prev,
+				   GET_SIZE(cur), (void*)GET_NEXT(cur));
+
+			if (steps >= 10000) {
+				fprintf(
+					stderr,
 					"Over 10000 entries in the free list, potential cycle\n");
-		}
+			}
 
-		prev = cur;
-		cur = GET_NEXT(cur);
+			prev = cur;
+			cur = GET_NEXT(cur);
+		}
 	}
 }
 

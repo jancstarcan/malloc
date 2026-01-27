@@ -4,6 +4,7 @@
 - sbrk heap
 - mmap for large allocations
 - coalescing
+- segregated free lists
 - debug mode
 
 ## Debug mode
@@ -31,7 +32,9 @@
 - mmap is used to allocate memory directly for allocations larger than 128KiB, so that it may be returned to the OS
 
 ## Free list
-- Singly linked, first-fit
+- Multiple segregated lists, first-fit
+- The ranges double with each list
+- The number of lists can be spcified in interface.h, up to 63 lists
 
 ## Build
 - __make debug__ - Debug mode with checks, canaries, and stats
@@ -45,4 +48,3 @@
   Two possible fixes would be switching to best-fit (slow), or implementing bins (more complex)
 
 ## TODO
-1. Bins: This would greatly improve the allocators performance when the heap is fragmented. Faster than best-fit, wastes less memory than first-fit

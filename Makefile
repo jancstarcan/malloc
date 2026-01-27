@@ -7,7 +7,7 @@ TARGET = test.bin
 
 SRCDIR = src
 BUILDDIR = .
-OBJDIR = .obj
+OBJDIR := .obj
 
 SRC = $(wildcard $(SRCDIR)/*.c)
 OBJ = $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o, $(SRC))
@@ -21,10 +21,13 @@ debug: $(TARGET)
 pre: CXXFLAGS = $(PREFLAGS)
 pre: $(TARGET)
 
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
+
 $(TARGET): $(OBJ)
 	$(CXX) $(OBJ) -o $(TARGET)
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
+$(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:

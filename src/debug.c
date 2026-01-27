@@ -97,9 +97,11 @@ void heap_check(void) {
 }
 
 void free_check(void) {
-	header_t* cur = free_list;
-	while (cur) {
-		assert(IS_FREE(cur));
-		cur = GET_NEXT(cur);
+	for (size_t i = 0; i < BIN_COUNT; i++) {
+		header_t* cur = free_lists[i];
+		while (cur) {
+			assert(IS_FREE(cur));
+			cur = GET_NEXT(cur);
+		}
 	}
 }

@@ -83,9 +83,11 @@ _Bool grow_heap() {
 	// If the last block is free it gets extended
 	// Otherwise a new one is created
 	if (IS_FREE(last_header)) {
+		remove_free(last_header);
 		size_t new_size = heap_size + GET_SIZE(last_header);
 		last_header->size = SET_XFREE(new_size);
 		FOOTER(last_header)->size = new_size;
+		add_to_free(last_header);
 		payload = PAYLOAD(last_header);
 	} else {
 		header_t* new_header = (header_t*)old_end;
