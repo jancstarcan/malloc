@@ -48,12 +48,13 @@ _Bool init_heap() {
 
 	size_t payload = heap_size - HEADER_SIZE - CANARY_SIZE - FOOTER_SIZE;
 
-	free_list = (header_t*)heap_start;
-	free_list->size = SET_XFREE(payload);
-	SET_NEXT(free_list, NULL);
-	FOOTER(free_list)->size = payload;
+	header_t* h = (header_t*)heap_start;
+	h->size = SET_XFREE(payload);
+	SET_NEXT(h, NULL);
+	FOOTER(h)->size = payload;
+	add_to_free(h);
 
-	poison_free(PAYLOAD(free_list));
+	poison_free(PAYLOAD(h));
 	heap_initialized = 1;
 
 	return 1;
@@ -91,9 +92,8 @@ _Bool grow_heap() {
 		size_t new_size = heap_size - HEADER_SIZE - CANARY_SIZE - FOOTER_SIZE;
 		new_header->size = SET_XFREE(new_size);
 		FOOTER(new_header)->size = new_size;
-		SET_NEXT(new_header, free_list);
-		free_list = new_header;
 		payload = PAYLOAD(new_header);
+		add_to_free(new_header);
 	}
 
 	heap_size *= 2;
