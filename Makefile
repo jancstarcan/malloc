@@ -1,9 +1,11 @@
 CXX = gcc
 FLAGS = -D_GNU_SOURCE -O3 -std=c11
 DEBUG = -D_GNU_SOURCE -DDEBUG -std=c11 -Wall -Wextra -Wpedantic -ggdb
-PREFLAGS = -E
 
 TARGET = test.bin
+
+LIBFLAGS = -shared
+LIBTARGET = malloc.so
 
 SRCDIR = src
 BUILDDIR = .
@@ -18,14 +20,20 @@ release: $(TARGET)
 debug: CXXFLAGS = $(DEBUG)
 debug: $(TARGET)
 
-pre: CXXFLAGS = $(PREFLAGS)
-pre: $(TARGET)
+rlib: CXXFLAGS = $(FLAGS) -fPIC
+rlib: $(LIBTARGET)
+
+dlib: CXXFLAGS = $(DEBUG) -fPIC
+dlib: $(LIBTARGET)
 
 $(OBJDIR):
 	mkdir -p $(OBJDIR)
 
 $(TARGET): $(OBJ)
 	$(CXX) $(OBJ) -o $(TARGET)
+
+$(LIBTARGET): $(OBJ)
+	$(CXX) $(OBJ) -shared -o $(TARGET)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@

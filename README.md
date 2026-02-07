@@ -39,6 +39,8 @@
 ## Build
 - __make debug__ - Debug mode with checks, canaries, and stats
 - __make release__ - Optimized production build
+- __make dlib__ - Debug mode shared library
+- __make rlib__ - Release mode shared library
 
 ## Tests
 - ./test.bin
