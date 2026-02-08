@@ -181,7 +181,7 @@ extern _Bool heap_initialized;
 				 FOOTER_SIZE))
 
 /*
- * Function delarations
+ * Function declarations
  *
  * Notes:
  *   - grow_heap doubles sbrk heap size
