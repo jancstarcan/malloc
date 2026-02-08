@@ -4,9 +4,7 @@
 
 void coalesce_prev(header_t** header_ptr) {
 	header_t* cur = *header_ptr;
-	header_t* prev = (uint8_t*)cur >= (uint8_t*)heap_start + MIN_BLOCK_SIZE
-					   ? PREV_HEADER(cur)
-					   : NULL;
+	header_t* prev = (uint8_t*)cur >= (uint8_t*)heap_start + MIN_BLOCK_SIZE ? PREV_HEADER(cur) : NULL;
 
 	if (!prev || !IS_FREE(prev))
 		return;
@@ -21,8 +19,7 @@ void coalesce_prev(header_t** header_ptr) {
 	size_t cur_size = GET_SIZE(cur);
 	size_t prev_size = GET_SIZE(prev);
 
-	size_t tot_size =
-		prev_size + CANARY_SIZE + FOOTER_SIZE + HEADER_SIZE + cur_size;
+	size_t tot_size = prev_size + CANARY_SIZE + FOOTER_SIZE + HEADER_SIZE + cur_size;
 	prev->size = SET_XFREE(tot_size);
 	FOOTER(prev)->size = tot_size;
 
@@ -45,8 +42,7 @@ void coalesce_next(header_t* cur) {
 	size_t cur_size = GET_SIZE(cur);
 	size_t next_size = GET_SIZE(next);
 
-	size_t tot_size =
-		cur_size + CANARY_SIZE + FOOTER_SIZE + HEADER_SIZE + next_size;
+	size_t tot_size = cur_size + CANARY_SIZE + FOOTER_SIZE + HEADER_SIZE + next_size;
 	cur->size = SET_XFREE(tot_size);
 	FOOTER(cur)->size = tot_size;
 }

@@ -27,7 +27,7 @@ inline void add_alloced(size_t n, _Bool mmap) {
 	}
 }
 
-void print_alloced() {
+void print_alloced(void) {
 	char buf[64];
 	header_t* h = heap_start;
 	footer_t* f;
@@ -44,8 +44,7 @@ void print_alloced() {
 		}
 
 		format_size(buf, s);
-		printf("%s | %p | size=%s\n", IS_FREE(h) ? "FREE" : "USED", (void*)h,
-			   buf);
+		printf("%s | %p | size=%s\n", IS_FREE(h) ? "FREE" : "USED", (void*)h, buf);
 
 		h = NEXT_HEADER(h);
 	}
@@ -63,13 +62,10 @@ void print_free(void) {
 		while (cur) {
 			steps++;
 			format_size(buf, GET_SIZE(cur));
-			printf("prev=0x%p | size=%s | next=0x%p\n", (void*)prev,
-				   buf, (void*)GET_NEXT(cur));
+			printf("prev=0x%p | size=%s | next=0x%p\n", (void*)prev, buf, (void*)GET_NEXT(cur));
 
 			if (steps >= 10000) {
-				fprintf(
-					stderr,
-					"Over 10000 entries in the free list, potential cycle\n");
+				fprintf(stderr, "Over 10000 entries in the free list, potential cycle\n");
 			}
 
 			prev = cur;
@@ -96,7 +92,7 @@ void print_stats(void) {
 }
 #else
 inline void add_alloced(size_t n, _Bool mmap) {}
-void dump_heap() {}
-void dump_free_list() {}
-void print_stats() {}
+void dump_heap(void) {}
+void dump_free_list(void) {}
+void print_stats(void) {}
 #endif

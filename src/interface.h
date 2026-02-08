@@ -169,16 +169,11 @@ extern _Bool heap_initialized;
 
 #define HEADER(p) ((header_t*)((uint8_t*)(p) - HEADER_SIZE))
 #define CANARY(h) ((size_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h)))
-#define FOOTER(h)                                                              \
-	((footer_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE))
+#define FOOTER(h) ((footer_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE))
 #define PAYLOAD(h) ((void*)((uint8_t*)(h) + HEADER_SIZE))
 #define PREV_FOOTER(h) ((footer_t*)((uint8_t*)(h) - FOOTER_SIZE))
-#define PREV_HEADER(h)                                                         \
-	((header_t*)((uint8_t*)PREV_FOOTER(h) - CANARY_SIZE -                      \
-				 PREV_FOOTER(h)->size - HEADER_SIZE))
-#define NEXT_HEADER(h)                                                         \
-	((header_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE +     \
-				 FOOTER_SIZE))
+#define PREV_HEADER(h) ((header_t*)((uint8_t*)PREV_FOOTER(h) - CANARY_SIZE - PREV_FOOTER(h)->size - HEADER_SIZE))
+#define NEXT_HEADER(h) ((header_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE + FOOTER_SIZE))
 
 #define abort() __builtin_trap()
 
@@ -234,8 +229,8 @@ void* calloc(size_t size, size_t n);
 
 // stats.c
 void add_alloced(size_t n, _Bool mmap);
-void dump_heap();
-void dump_free_list();
-void print_stats();
+void dump_heap(void);
+void dump_free_list(void);
+void print_stats(void);
 
 #endif

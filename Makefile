@@ -17,22 +17,22 @@ EXE_SRC = $(LIB_SRC) $(wildcard $(SRCDIR)/tests/*.c)
 
 # Entry points
 release:
-	$(MAKE) MODE=release CCFLAGS="$(FLAGS)" build-exe
+	$(MAKE) MODE=release CFLAGS="$(FLAGS)" build-exe
 
 debug:
-	$(MAKE) MODE=debug CCFLAGS="$(DEBUG)" build-exe
+	$(MAKE) MODE=debug CFLAGS="$(DEBUG)" build-exe
 
 rdynlib:
-	$(MAKE) MODE=rdynlib CCFLAGS="$(FLAGS) -fPIC" build-lib
+	$(MAKE) MODE=rdynlib CFLAGS="$(FLAGS) -fPIC" build-lib
 
 ddynlib:
-	$(MAKE) MODE=ddynlib CCFLAGS="$(DEBUG) -fPIC" build-lib
+	$(MAKE) MODE=ddynlib CFLAGS="$(DEBUG) -fPIC" build-lib
 
 rstatlib:
-	$(MAKE) MODE=rstatlib CCFLAGS="$(FLAGS)" build-static
+	$(MAKE) MODE=rstatlib CFLAGS="$(FLAGS)" build-static
 
 dstatlib:
-	$(MAKE) MODE=dstatlib CCFLAGS="$(DEBUG)" build-static
+	$(MAKE) MODE=dstatlib CFLAGS="$(DEBUG)" build-static
 
 # Build logic
 MODE ?= release
@@ -58,11 +58,11 @@ $(STATICLIB): $(LIB_OBJ)
 # Rules
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	mkdir -p $(dir $@)
-	$(CC) $(CCFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OBJDIR)/tests/%.o: $(SRCDIR)/tests/%.c
 	mkdir -p $(dir $@)
-	$(CC) $(CCFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # Cleanup
 clean:

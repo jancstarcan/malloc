@@ -38,8 +38,7 @@ void free(void* ptr) {
 
 	// Debug mode check for pointer validity
 #ifdef DEBUG
-	if (((void*)header < heap_start || (void*)header >= heap_end) &&
-		!IS_MMAP(header)) {
+	if (((void*)header < heap_start || (void*)header >= heap_end) && !IS_MMAP(header)) {
 		fprintf(stderr, "Ptr is not in the accepted range\n");
 		fflush(stderr);
 		abort();
@@ -151,4 +150,3 @@ void* calloc(size_t size, size_t n) {
 
 	return ptr;
 }
-

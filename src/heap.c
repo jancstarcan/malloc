@@ -14,7 +14,7 @@ _Static_assert(!(ALIGNMENT & 0x1), "ALIGNMENT must be even");
 #endif
 
 // Allocates the first INITIAL_HEAP_SIZE bytes
-_Bool init_heap() {
+_Bool init_heap(void) {
 	heap_size = INITIAL_HEAP_SIZE;
 	uintptr_t brk = (uintptr_t)sbrk(0);
 
@@ -61,7 +61,7 @@ _Bool init_heap() {
 }
 
 // Doubles heap size
-_Bool grow_heap() {
+_Bool grow_heap(void) {
 	if (heap_size > SIZE_MAX / 2)
 		return 0;
 
@@ -76,8 +76,7 @@ _Bool grow_heap() {
 	heap_end = sbrk(0);
 
 	footer_t* last_footer = (footer_t*)((uint8_t*)old_end - FOOTER_SIZE);
-	header_t* last_header = (header_t*)((uint8_t*)last_footer - CANARY_SIZE -
-									last_footer->size - HEADER_SIZE);
+	header_t* last_header = (header_t*)((uint8_t*)last_footer - CANARY_SIZE - last_footer->size - HEADER_SIZE);
 	void* payload;
 
 	// If the last block is free it gets extended
@@ -109,8 +108,7 @@ _Bool grow_heap() {
 void* mmap_alloc(size_t size) {
 	size = ALIGN_UP(size);
 	size_t tot_size = size + HEADER_SIZE + CANARY_SIZE;
-	void* new = mmap(NULL, tot_size, PROT_WRITE | PROT_READ,
-					 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	void* new = mmap(NULL, tot_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
 	if (new == (void*)-1) {
 #ifdef DEBUG
