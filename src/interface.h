@@ -180,6 +180,8 @@ extern _Bool heap_initialized;
 	((header_t*)((uint8_t*)(h) + HEADER_SIZE + GET_SIZE(h) + CANARY_SIZE +     \
 				 FOOTER_SIZE))
 
+#define abort() __builtin_trap()
+
 /*
  * Function declarations
  *
@@ -229,5 +231,11 @@ void* malloc(size_t size);
 void free(void* ptr);
 void* realloc(void* ptr, size_t size);
 void* calloc(size_t size, size_t n);
+
+// stats.c
+void add_alloced(size_t n, _Bool mmap);
+void dump_heap();
+void dump_free_list();
+void print_stats();
 
 #endif

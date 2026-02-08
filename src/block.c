@@ -1,7 +1,6 @@
 #include "interface.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 
 void coalesce_prev(header_t** header_ptr) {
 	header_t* cur = *header_ptr;

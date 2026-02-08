@@ -2,7 +2,6 @@
 
 #include <assert.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 void debug_test(void) {

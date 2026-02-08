@@ -1,23 +1,7 @@
 #include "interface.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-
-#ifdef DEBUG
-size_t heap_bytes, mmap_bytes, heap_allocs, mmap_allocs;
-static inline void add_alloced(size_t n, _Bool mmap) {
-	if (mmap) {
-		mmap_bytes += n;
-		mmap_allocs++;
-	} else {
-		heap_bytes += n;
-		heap_allocs++;
-	}
-}
-#else
-static inline void add_alloced(size_t n, _Bool mmap) {}
-#endif
 
 void* malloc(size_t size) {
 	if (size == 0)
@@ -168,88 +152,3 @@ void* calloc(size_t size, size_t n) {
 	return ptr;
 }
 
-#ifdef DEBUG
-void dump_heap() {
-	header_t* h = heap_start;
-	footer_t* f;
-	size_t s;
-
-	printf("Heap:\n");
-	while ((void*)h < heap_end) {
-		s = GET_SIZE(h);
-		f = FOOTER(h);
-
-		if (s < MIN_BLOCK_SIZE || s > heap_size) {
-			fprintf(stderr, "CORRUPTED BLOCK at %p\n", (void*)h);
-			abort();
-		}
-
-		if (s != f->size) {
-			fprintf(stderr, "FOOTER MISMATCH at %p\n", (void*)h);
-			abort();
-		}
-
-		printf("%s | %p | size=%zu\n", IS_FREE(h) ? "FREE" : "USED", (void*)h,
-			   s);
-
-		h = NEXT_HEADER(h);
-	}
-}
-
-void dump_free_list(void) {
-	header_t* prev = NULL;
-	int steps = 0;
-
-	for (size_t i = 0; i < BIN_COUNT; i++) {
-		header_t* cur = free_lists[i];
-
-		printf("Free List %zu:\n", i);
-		while (cur) {
-			steps++;
-			printf("prev=0x%p | size=%zu | next=0x%p\n", (void*)prev,
-				   GET_SIZE(cur), (void*)GET_NEXT(cur));
-
-			if (steps >= 10000) {
-				fprintf(
-					stderr,
-					"Over 10000 entries in the free list, potential cycle\n");
-			}
-
-			prev = cur;
-			cur = GET_NEXT(cur);
-		}
-	}
-}
-
-void format_size(char* buf, size_t bytes) {
-	const char* units[] = {"B", "KiB", "MiB", "GiB", "TiB"};
-	int u = 0;
-	double s = (double)bytes;
-
-	while (s >= 1024 && u < 4) {
-		s /= 1024;
-		u += 1;
-	}
-
-	snprintf(buf, 64, "%.2f%s", s, units[u]);
-}
-
-void print_stats(void) {
-	printf("Stats:\n\n");
-	char buf[64];
-
-	size_t tot_bytes = heap_bytes + mmap_bytes;
-	size_t tot_allocs = heap_allocs + mmap_allocs;
-
-	format_size(buf, tot_bytes);
-	printf("%zu blocks were allocated %s\n", tot_allocs, buf);
-	format_size(buf, heap_bytes);
-	printf("%zu in the heap %s\n", heap_allocs, buf);
-	format_size(buf, mmap_bytes);
-	printf("%zu with mmap %s\n", mmap_allocs, buf);
-}
-#else
-void dump_heap() {}
-void dump_free_list() {}
-void print_stats() {}
-#endif
