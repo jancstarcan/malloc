@@ -1,4 +1,5 @@
 # Custom C allocator
+A custom C allocator with segregated free lists, coalescing, and a debug mode.
 
 ## Features
 - sbrk heap
@@ -34,8 +35,8 @@
 
 ## Flag encoding
 - There are two flags encoded in the low bits of the header's size:
-  1. bit 0: mark block as free
-  2. bit 1: mark block as mmap-allocated
+  - bit 0: mark block as free
+  - bit 1: mark block as mmap-allocated
 - Footers store the size without flags
 
 ## Memory management
