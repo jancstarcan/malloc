@@ -1,5 +1,7 @@
 *.o
 *.bin
+*.so
+*.a
 .old
 .cache
 compile_commands.json
