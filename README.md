@@ -23,11 +23,13 @@
 - Normal:
    | Header | Payload | Footer |
    |--------|---------|--------|
+
    Next pointer is stored in the payload
 
 - Debug:
    | Header | Payload | Canary | Footer |
    |--------|---------|--------|--------|
+
    Next pointer is stored in the header
 
 ## Flag encoding
