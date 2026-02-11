@@ -73,3 +73,7 @@ A custom C allocator with segregated free lists, coalescing, and a debug mode.
 - High-performance production use
 - Lock-free or wait-free guarantees
 - Thread-safety
+
+## Known limitations
+- It only works on Linux
+- Most likely depends on GCC/Clang
