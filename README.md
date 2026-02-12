@@ -1,5 +1,5 @@
 # Custom C allocator
-A custom C allocator with segregated free lists, coalescing, and a debug mode.
+This allocator uses a segregated free list design over an sbrk heap, or mmap for larger allocations. Blocks contain headers and footers to support constant-time coalescing. In debug mode, additional integrity checks, canaries, and payload poisoning are enabled.
 
 ## Features
 - sbrk heap
@@ -40,8 +40,10 @@ A custom C allocator with segregated free lists, coalescing, and a debug mode.
 - Footers store the size without flags
 
 ## Memory management
-- An sbrk heap is used for allocations smaller than 128KiB. The heap doubles in size when lengthened
+- An sbrk heap is used for allocations smaller than 128KiB.
+- The heap grows geometrycally. Each extension doubles the previous size, starting from `INITIAL_HEAP_SIZE`
 - mmap is used to allocate memory directly for allocations larger than 128KiB, so that it may be returned to the OS
+- Coalescing occurs on every `free()`. Both the previous and next blocks are checked
 
 ## Free list
 - Multiple segregated lists, each first-fit
@@ -53,6 +55,12 @@ A custom C allocator with segregated free lists, coalescing, and a debug mode.
 - Free blocks appear in exactly one free list
 - Header and footer sizes must match (except for mmap blocks)
 - mmap never participate in coalescing
+
+## Edge cases
+- `malloc(0)` -> `NULL`
+- `free(NULL)` -> no-op
+- `realloc(NULL, size)` -> `malloc(size)`
+- `realloc(ptr, 0)` -> `free(ptr)`
 
 ## Build
 - `make debug` - Debug test build
