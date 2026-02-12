@@ -34,6 +34,9 @@ rstatlib:
 dstatlib:
 	$(MAKE) MODE=dstatlib CFLAGS="$(DEBUG)" build-static
 
+bear: clean
+	bear -- make debug
+
 # Build logic
 MODE ?= release
 OBJDIR := .obj/$(MODE)
