@@ -7,7 +7,7 @@ void free(void* ptr);
 void* realloc(void* ptr, size_t size);
 void* calloc(size_t size, size_t n);
 
-void dump_heap(void);
-void dump_free_list(void);
+void print_alloced(void);
+void print_free(void);
 void print_stats(void);
 #endif

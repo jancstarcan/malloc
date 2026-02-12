@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-void format_size(char* buf, size_t bytes) {
+static void format_size(char* buf, size_t bytes) {
 	const char* units[] = {"B", "KiB", "MiB", "GiB", "TiB"};
 	int u = 0;
 	double s = (double)bytes;
@@ -35,6 +35,11 @@ void print_alloced(void) {
 
 	printf("Heap:\n");
 	while ((void*)h < heap_end) {
+		if (IS_FREE(h)) {
+			h = NEXT_HEADER(h);
+			continue;
+		}
+
 		s = GET_SIZE(h);
 		f = FOOTER(h);
 
@@ -92,7 +97,7 @@ void print_stats(void) {
 }
 #else
 inline void add_alloced(size_t n, _Bool mmap) {}
-void dump_heap(void) {}
-void dump_free_list(void) {}
+void print_alloced(void) {}
+void print_free(void) {}
 void print_stats(void) {}
 #endif
