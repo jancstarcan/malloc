@@ -15,7 +15,7 @@ static void format_size(char* buf, size_t bytes) {
 	snprintf(buf, 64, "%.2f%s", s, units[u]);
 }
 
-#ifdef DEBUG
+#ifdef MM_DEBUG
 size_t heap_bytes, mmap_bytes, heap_allocs, mmap_allocs;
 inline void add_alloced(size_t n, _Bool mmap) {
 	if (mmap) {
@@ -35,23 +35,23 @@ void print_alloced(void) {
 
 	printf("Heap:\n");
 	while ((void*)h < heap_end) {
-		if (IS_FREE(h)) {
-			h = NEXT_HEADER(h);
+		if (MM_IS_FREE(h)) {
+			h = MM_NEXT_HEADER(h);
 			continue;
 		}
 
-		s = GET_SIZE(h);
-		f = FOOTER(h);
+		s = MM_GET_SIZE(h);
+		f = MM_FOOTER(h);
 
 		if (s != f->size) {
-			fprintf(stderr, "FOOTER MISMATCH at %p\n", (void*)h);
+			fprintf(stderr, "MM_FOOTER MISMATCH at %p\n", (void*)h);
 			abort();
 		}
 
 		format_size(buf, s);
-		printf("%s | %p | size=%s\n", IS_FREE(h) ? "FREE" : "USED", (void*)h, buf);
+		printf("%s | %p | size=%s\n", MM_IS_FREE(h) ? "FREE" : "USED", (void*)h, buf);
 
-		h = NEXT_HEADER(h);
+		h = MM_NEXT_HEADER(h);
 	}
 }
 
@@ -60,21 +60,21 @@ void print_free(void) {
 	int steps = 0;
 	char buf[64];
 
-	for (size_t i = 0; i < BIN_COUNT; i++) {
+	for (size_t i = 0; i < MM_BIN_COUNT; i++) {
 		header_t* cur = free_lists[i];
 
 		printf("Free List %zu:\n", i);
 		while (cur) {
 			steps++;
-			format_size(buf, GET_SIZE(cur));
-			printf("prev=0x%p | size=%s | next=0x%p\n", (void*)prev, buf, (void*)GET_NEXT(cur));
+			format_size(buf, MM_GET_SIZE(cur));
+			printf("prev=0x%p | size=%s | next=0x%p\n", (void*)prev, buf, (void*)MM_GET_NEXT(cur));
 
 			if (steps >= 10000) {
 				fprintf(stderr, "Over 10000 entries in the free list, potential cycle\n");
 			}
 
 			prev = cur;
-			cur = GET_NEXT(cur);
+			cur = MM_GET_NEXT(cur);
 		}
 	}
 }
