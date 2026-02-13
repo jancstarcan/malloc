@@ -7,7 +7,7 @@ void free(void* ptr);
 void* realloc(void* ptr, size_t size);
 void* calloc(size_t size, size_t n);
 
-void print_alloced(void);
-void print_free(void);
-void print_stats(void);
+void mm_print_alloced(void);
+void mm_print_free(void);
+void mm_print_stats(void);
 #endif

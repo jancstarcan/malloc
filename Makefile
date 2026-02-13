@@ -1,7 +1,7 @@
 CC = gcc
 
 FLAGS = -D_GNU_SOURCE -O3 -std=c11
-DEBUG = -D_GNU_SOURCE -DDEBUG -std=c11 -Wall -Wextra -Wpedantic -ggdb
+DEBUG = -D_GNU_SOURCE -DMM_DEBUG -std=c11 -Wall -Wextra -Wpedantic -ggdb
 
 SRCDIR = src
 BUILDDIR = .

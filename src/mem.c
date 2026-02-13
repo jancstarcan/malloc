@@ -10,20 +10,20 @@ void* malloc(size_t size) {
 	size = MM_ALIGN_UP(size);
 
 	if (size >= MMAP_THRESHOLD) {
-		void* p = mmap_alloc(size);
-		write_canary(MM_HEADER(p));
-		poison_alloc(p);
+		void* p = mm_mmap_alloc(size);
+		mm_write_canary(MM_HEADER(p));
+		mm_poison_alloc(p);
 
-		add_alloced(size, 1);
+		mm_add_alloced(size, 1);
 
 		return p;
 	}
 
-	void* p = malloc_block(size);
-	write_canary(MM_HEADER(p));
-	poison_alloc(p);
+	void* p = mm_malloc_block(size);
+	mm_write_canary(MM_HEADER(p));
+	mm_poison_alloc(p);
 
-	add_alloced(size, 0);
+	mm_add_alloced(size, 0);
 
 	MM_RUN_CHECKS();
 	return p;
@@ -34,21 +34,21 @@ void free(void* ptr) {
 		return;
 
 	header_t* header = MM_HEADER(ptr);
-	check_canary(header);
+	mm_check_canary(header);
 
 	// Debug mode check for pointer validity
 #ifdef MM_DEBUG
-	if (((void*)header < heap_start || (void*)header >= heap_end) && !MM_IS_MMAP(header)) {
+	if (((void*)header < mm_heap_start || (void*)header >= mm_heap_end) && !MM_IS_MMAP(header)) {
 		fprintf(stderr, "Ptr is not in the accepted range\n");
 		fflush(stderr);
-		abort();
+		MM_ABORT();
 	}
 #endif
 
-	poison_free(ptr);
+	mm_poison_free(ptr);
 
 	if (MM_IS_MMAP(header)) {
-		mmap_free(header);
+		mm_mmap_free(header);
 		return;
 	}
 
@@ -57,16 +57,16 @@ void free(void* ptr) {
 #ifdef MM_DEBUG
 		fprintf(stderr, "Double free detected\n");
 		fflush(stderr);
-		abort();
+		MM_ABORT();
 #else
 		return;
 #endif
 	}
 
 	header->size = MM_SET_FREE(header->size);
-	coalesce_prev(&header);
-	coalesce_next(header);
-	add_to_free(header);
+	mm_coalesce_prev(&header);
+	mm_coalesce_next(header);
+	mm_add_to_free(header);
 
 	MM_RUN_CHECKS();
 }
@@ -89,34 +89,33 @@ void* realloc(void* ptr, size_t size) {
 		// No change in size
 		return ptr;
 	} else if (size < old_size) {
-		shrink_block(header, size);
+		mm_shrink_block(header, size);
 
-		write_canary(header);
+		mm_write_canary(header);
 		MM_RUN_CHECKS();
 		return ptr;
 	}
 
-	if (try_grow_in_place(header, size)) {
-		write_canary(header);
-		add_alloced(size - old_size, 0);
+	if (mm_grow_block(header, size)) {
+		mm_write_canary(header);
+		mm_add_alloced(size - old_size, 0);
 		MM_RUN_CHECKS();
 		return ptr;
 	}
 
 	// In case the next block isn't big enough or isn't free,
 	// malloc_block is called
-	void* new_ptr = malloc_block(size);
+	void* new_ptr = mm_malloc_block(size);
 	if (!new_ptr)
 		return NULL;
 
-	poison_alloc(new_ptr);
+	mm_poison_alloc(new_ptr);
 
 	memcpy(new_ptr, ptr, old_size);
 	free(ptr);
 
-	add_alloced(size, 0);
-
-	write_canary(MM_HEADER(new_ptr));
+	mm_add_alloced(size, 0);
+	mm_write_canary(MM_HEADER(new_ptr));
 	MM_RUN_CHECKS();
 
 	return new_ptr;
@@ -134,18 +133,18 @@ void* calloc(size_t size, size_t n) {
 	void* ptr;
 
 	if (tot_size >= MMAP_THRESHOLD) {
-		ptr = mmap_alloc(tot_size);
-		add_alloced(tot_size, 1);
+		ptr = mm_mmap_alloc(tot_size);
+		mm_add_alloced(tot_size, 1);
 	} else {
-		ptr = malloc_block(tot_size);
-		add_alloced(tot_size, 0);
+		ptr = mm_malloc_block(tot_size);
+		mm_add_alloced(tot_size, 0);
 	}
 
 	if (!ptr)
 		return NULL;
 
 	memset(ptr, 0, tot_size);
-	write_canary(MM_HEADER(ptr));
+	mm_write_canary(MM_HEADER(ptr));
 	MM_RUN_CHECKS();
 
 	return ptr;

@@ -15,7 +15,7 @@
  *
  * Header->size encodes:
  *   - payload size (aligned)
- *   - MM_MMAP_BIT (is allocated with mmap)
+ *   - MM__BIT (is allocated with mmap)
  *   - MM_FREE_BIT (is free)
  *
  * Free list:
@@ -61,21 +61,21 @@ typedef struct {
 
 #define MM_BIN_COUNT 32
 #define MM_BIN_BASE MM_ALIGNMENT
-extern header_t* free_lists[MM_BIN_COUNT];
+extern header_t* mm_free_lists[MM_BIN_COUNT];
 
 #if MM_BIN_COUNT <= 8
 typedef uint8_t bins_map_t;
 #elif MM_BIN_COUNT <= 16
 typedef uint16_t bins_map_t;
 #elif MM_BIN_COUNT <= 32
-typedef uint32_t bins_map_t;
+typedef uint32_t free_map_t;
 #elif MM_BIN_COUNT < 64
 typedef uint64_t bins_map_t;
 #else
 #error "Too many bins for bitmap"
 #endif
 
-extern bins_map_t bins_map;
+extern free_map_t mm_free_map;
 
 /*
  * Heap state:
@@ -85,13 +85,13 @@ extern bins_map_t bins_map;
  *   heap_size reflects current heap_end - heap_start
  */
 
-extern void* heap_start;
-extern void* heap_end;
-extern size_t heap_size;
-extern _Bool heap_initialized;
+extern void* mm_heap_start;
+extern void* mm_heap_end;
+extern size_t mm_heap_size;
+extern _Bool mm_heap_initialized;
 
 #define MMAP_THRESHOLD (128 * 1024)
-#define INITIAL_HEAP_SIZE 4096
+#define MM_INITIAL_HEAP_SIZE 4096
 
 #define MM_ALIGNMENT alignof(max_align_t)
 #define MM_ALIGN_UP(x) (((x) + MM_ALIGNMENT - 1) & ~(MM_ALIGNMENT - 1))
@@ -104,8 +104,8 @@ extern _Bool heap_initialized;
 #define MM_POISON_FREE_BYTE 0xDD
 #define MM_POISON_ALLOC_BYTE 0xAA
 #define MM_CANARY_SIZE MM_ALIGN_UP(sizeof(size_t))
-#define ENABLE_CANARIES
-#define ENABLE_POISONING
+#define MM_ENABLE_CANARIES
+#define MM_ENABLE_POISONING
 #else
 #define MM_CANARY_SIZE 0
 #endif
@@ -121,7 +121,7 @@ extern _Bool heap_initialized;
 #define MM_FREE_MASK (~MM_FREE_BIT)
 #define MM_MMAP_MASK (~MM_MMAP_BIT)
 
-#define MM_BIN_BIT(i) ((bins_map_t)1 << (i))
+#define MM_BIN_BIT(i) ((free_map_t)1 << (i))
 
 /*
  * MM_GET_SIZE(b): extract payload size from header
@@ -175,7 +175,7 @@ extern _Bool heap_initialized;
 #define MM_PREV_HEADER(h) ((header_t*)((uint8_t*)MM_PREV_FOOTER(h) - MM_CANARY_SIZE - MM_PREV_FOOTER(h)->size - MM_HEADER_SIZE))
 #define MM_NEXT_HEADER(h) ((header_t*)((uint8_t*)(h) + MM_HEADER_SIZE + MM_GET_SIZE(h) + MM_CANARY_SIZE + MM_FOOTER_SIZE))
 
-#define abort() __builtin_trap()
+#define MM_ABORT() __builtin_trap()
 
 /*
  * Function declarations
@@ -187,39 +187,39 @@ extern _Bool heap_initialized;
  */
 
 // debug.c
-void debug_test(void);
-void write_canary(header_t* h);
-void check_canary(header_t* h);
-void poison_free(void* p);
-void poison_alloc(void* p);
-void poison_free_area(void* p, size_t s);
-void poison_alloc_area(void* p, size_t s);
-void heap_check(void);
-void free_check(void);
+void mm_debug_test(void);
+void mm_write_canary(header_t* h);
+void mm_check_canary(header_t* h);
+void mm_poison_free(void* p);
+void mm_poison_alloc(void* p);
+void mm_poison_free_area(void* p, size_t s);
+void mm_poison_alloc_area(void* p, size_t s);
+void mm_heap_check(void);
+void mm_free_check(void);
 
 #ifdef MM_DEBUG
-#define MM_RUN_CHECKS() debug_test()
+#define MM_RUN_CHECKS() mm_debug_test()
 #else
 #define MM_RUN_CHECKS() ((void)0)
 #endif
 
 // heap.c
-_Bool init_heap(void);
-_Bool grow_heap(void);
-void* mmap_alloc(size_t size);
-void mmap_free(header_t* header);
+_Bool mm_init_heap(void);
+_Bool mm_grow_heap(void);
+void* mm_mmap_alloc(size_t size);
+void mm_mmap_free(header_t* header);
 
 // free_list.c
-void add_to_free(header_t* h);
-_Bool remove_free(header_t* h);
-header_t* find_fit(size_t size);
+void mm_add_to_free(header_t* h);
+_Bool mm_remove_free(header_t* h);
+header_t* mm_find_fit(size_t size);
 
 // block.c
-void coalesce_prev(header_t** header_ptr);
-void coalesce_next(header_t* header);
-void shrink_block(header_t* header, size_t size);
-_Bool try_grow_in_place(header_t* header, size_t size);
-void* malloc_block(size_t size);
+void mm_coalesce_prev(header_t** header_ptr);
+void mm_coalesce_next(header_t* header);
+void mm_shrink_block(header_t* header, size_t size);
+_Bool mm_grow_block(header_t* header, size_t size);
+void* mm_malloc_block(size_t size);
 
 // mem.c
 void* malloc(size_t size);
@@ -228,9 +228,9 @@ void* calloc(size_t size, size_t n);
 void free(void* ptr);
 
 // stats.c
-void add_alloced(size_t n, _Bool mmap);
-void print_alloced(void);
-void print_free(void);
-void print_stats(void);
+void mm_add_alloced(size_t n, _Bool mmap);
+void mm_print_alloced(void);
+void mm_print_free(void);
+void mm_print_stats(void);
 
 #endif

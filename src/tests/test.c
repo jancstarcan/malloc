@@ -24,7 +24,7 @@ int main(void) {
 	shrink();
 	grow();
 
-	print_stats();
+	mm_print_stats();
 
 	return 0;
 }

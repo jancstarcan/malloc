@@ -17,7 +17,7 @@ static void format_size(char* buf, size_t bytes) {
 
 #ifdef MM_DEBUG
 size_t heap_bytes, mmap_bytes, heap_allocs, mmap_allocs;
-inline void add_alloced(size_t n, _Bool mmap) {
+inline void mm_add_alloced(size_t n, _Bool mmap) {
 	if (mmap) {
 		mmap_bytes += n;
 		mmap_allocs++;
@@ -27,14 +27,14 @@ inline void add_alloced(size_t n, _Bool mmap) {
 	}
 }
 
-void print_alloced(void) {
+void mm_print_alloced(void) {
 	char buf[64];
-	header_t* h = heap_start;
+	header_t* h = mm_heap_start;
 	footer_t* f;
 	size_t s;
 
 	printf("Heap:\n");
-	while ((void*)h < heap_end) {
+	while ((void*)h < mm_heap_end) {
 		if (MM_IS_FREE(h)) {
 			h = MM_NEXT_HEADER(h);
 			continue;
@@ -45,7 +45,7 @@ void print_alloced(void) {
 
 		if (s != f->size) {
 			fprintf(stderr, "MM_FOOTER MISMATCH at %p\n", (void*)h);
-			abort();
+			MM_ABORT();
 		}
 
 		format_size(buf, s);
@@ -55,13 +55,13 @@ void print_alloced(void) {
 	}
 }
 
-void print_free(void) {
+void mm_print_free(void) {
 	header_t* prev = NULL;
 	int steps = 0;
 	char buf[64];
 
 	for (size_t i = 0; i < MM_BIN_COUNT; i++) {
-		header_t* cur = free_lists[i];
+		header_t* cur = mm_free_lists[i];
 
 		printf("Free List %zu:\n", i);
 		while (cur) {
@@ -79,14 +79,14 @@ void print_free(void) {
 	}
 }
 
-void print_stats(void) {
+void mm_print_stats(void) {
 	printf("Stats:\n\n");
 	char buf[64];
 
 	size_t tot_bytes = heap_bytes + mmap_bytes;
 	size_t tot_allocs = heap_allocs + mmap_allocs;
 
-	format_size(buf, heap_size);
+	format_size(buf, mm_heap_size);
 	printf("Heap size is %s\n", buf);
 	format_size(buf, tot_bytes);
 	printf("%zu blocks were allocated %s\n", tot_allocs, buf);
@@ -96,8 +96,8 @@ void print_stats(void) {
 	printf("%zu with mmap %s\n", mmap_allocs, buf);
 }
 #else
-inline void add_alloced(size_t n, _Bool mmap) {}
-void print_alloced(void) {}
-void print_free(void) {}
-void print_stats(void) {}
+inline void mm_add_alloced(size_t n, _Bool mmap) {}
+void mm_print_alloced(void) {}
+void mm_print_free(void) {}
+void mm_print_stats(void) {}
 #endif

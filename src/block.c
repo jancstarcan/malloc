@@ -2,17 +2,17 @@
 
 #include <stdio.h>
 
-void coalesce_prev(header_t** header_ptr) {
+void mm_coalesce_prev(header_t** header_ptr) {
 	header_t* cur = *header_ptr;
-	header_t* prev = (uint8_t*)cur >= (uint8_t*)heap_start + MM_MIN_BLOCK_SIZE ? MM_PREV_HEADER(cur) : NULL;
+	header_t* prev = (uint8_t*)cur >= (uint8_t*)mm_heap_start + MM_MIN_BLOCK_SIZE ? MM_PREV_HEADER(cur) : NULL;
 
 	if (!prev || !MM_IS_FREE(prev))
 		return;
 
-	if (!remove_free(prev)) {
+	if (!mm_remove_free(prev)) {
 #ifdef MM_DEBUG
 		fprintf(stderr, "Block is marked as free but isn't in the free list\n");
-		abort();
+		MM_ABORT();
 #endif
 	}
 
@@ -26,16 +26,16 @@ void coalesce_prev(header_t** header_ptr) {
 	*header_ptr = prev;
 }
 
-void coalesce_next(header_t* cur) {
+void mm_coalesce_next(header_t* cur) {
 	header_t* next = MM_NEXT_HEADER(cur);
 
-	if ((uint8_t*)next + MM_HEADER_SIZE > (uint8_t*)heap_end || !MM_IS_FREE(next))
+	if ((uint8_t*)next + MM_HEADER_SIZE > (uint8_t*)mm_heap_end || !MM_IS_FREE(next))
 		return;
 
-	if (!remove_free(next)) {
+	if (!mm_remove_free(next)) {
 #ifdef MM_DEBUG
 		fprintf(stderr, "Block is marked as free but isn't in the free list\n");
-		abort();
+		MM_ABORT();
 #endif
 	}
 
@@ -47,7 +47,7 @@ void coalesce_next(header_t* cur) {
 	MM_FOOTER(cur)->size = tot_size;
 }
 
-void shrink_block(header_t* header, size_t size) {
+void mm_shrink_block(header_t* header, size_t size) {
 	size_t old_size = MM_GET_SIZE(header);
 	size_t leftover = old_size - size;
 
@@ -61,15 +61,15 @@ void shrink_block(header_t* header, size_t size) {
 		new_free->size = MM_SET_XFREE(new_size);
 		MM_FOOTER(new_free)->size = new_size;
 
-		coalesce_next(new_free);
-		add_to_free(new_free);
+		mm_coalesce_next(new_free);
+		mm_add_to_free(new_free);
 	}
 }
 
-_Bool try_grow_in_place(header_t* h, size_t size) {
+_Bool mm_grow_block(header_t* h, size_t size) {
 	size_t old_size = MM_GET_SIZE(h);
 
-	if ((void*)((uint8_t*)MM_FOOTER(h) + MM_MIN_BLOCK_SIZE) >= heap_end)
+	if ((void*)((uint8_t*)MM_FOOTER(h) + MM_MIN_BLOCK_SIZE) >= mm_heap_end)
 		return 0;
 
 	header_t* next = MM_NEXT_HEADER(h);
@@ -79,12 +79,12 @@ _Bool try_grow_in_place(header_t* h, size_t size) {
 	if (!MM_IS_FREE(next) || tot_size < size)
 		return 0;
 
-	remove_free(next);
+	mm_remove_free(next);
 
 	if (tot_size - size < MM_MIN_PAYLOAD) {
 		// The entire next block gets absorbed
 		tot_size = MM_CANARY_SIZE + MM_FOOTER_SIZE + tot_size + MM_HEADER_SIZE;
-		poison_alloc_area((void*)next, MM_HEADER_SIZE + next_size);
+		mm_poison_alloc_area((void*)next, MM_HEADER_SIZE + next_size);
 		h->size = MM_CLR_FLAGS(tot_size);
 		MM_FOOTER(h)->size = tot_size;
 	} else {
@@ -92,31 +92,31 @@ _Bool try_grow_in_place(header_t* h, size_t size) {
 		h->size = MM_CLR_FLAGS(size);
 		MM_FOOTER(h)->size = size;
 		void* new_start = (uint8_t*)MM_PAYLOAD(h) + old_size;
-		poison_alloc_area(new_start, size - old_size);
+		mm_poison_alloc_area(new_start, size - old_size);
 
 		next_size = tot_size - size;
 		next = MM_NEXT_HEADER(h);
 		next->size = MM_SET_XFREE(next_size);
 		MM_FOOTER(next)->size = next_size;
 
-		add_to_free(next);
+		mm_add_to_free(next);
 	}
 
 	return 1;
 }
 
-void* malloc_block(size_t size) {
-	if (!heap_initialized)
-		if (!init_heap())
+void* mm_malloc_block(size_t size) {
+	if (!mm_heap_initialized)
+		if (!mm_init_heap())
 			return NULL;
 
-	header_t* free_block = find_fit(size);
+	header_t* free_block = mm_find_fit(size);
 
 	if (!free_block) {
-		if (!grow_heap())
+		if (!mm_grow_heap())
 			return NULL;
 		else
-			return malloc_block(size);
+			return mm_malloc_block(size);
 	}
 
 	size_t free_size = MM_GET_SIZE(free_block);
@@ -131,7 +131,7 @@ void* malloc_block(size_t size) {
 		new_free->size = MM_SET_FREE(new_size);
 		MM_FOOTER(new_free)->size = new_size;
 
-		add_to_free(new_free);
+		mm_add_to_free(new_free);
 	} else {
 		// No split case
 		size = MM_GET_SIZE(free_block);
