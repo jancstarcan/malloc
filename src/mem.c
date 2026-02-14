@@ -7,8 +7,6 @@ void* malloc(size_t size) {
 	if (size == 0)
 		return NULL;
 
-	size = MM_ALIGN_UP(size);
-
 	if (size >= MMAP_THRESHOLD) {
 		void* p = mm_mmap_alloc(size);
 		mm_write_canary(MM_HEADER(p));
@@ -19,6 +17,7 @@ void* malloc(size_t size) {
 		return p;
 	}
 
+	size = MM_MAX(size, MM_MIN_PAYLOAD);
 	void* p = mm_malloc_block(size);
 	mm_write_canary(MM_HEADER(p));
 	mm_poison_alloc(p);

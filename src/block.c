@@ -51,7 +51,7 @@ void mm_shrink_block(header_t* header, size_t size) {
 	size_t old_size = MM_GET_SIZE(header);
 	size_t leftover = old_size - size;
 
-	if (leftover >= MM_MIN_BLOCK_SIZE) {
+	if (leftover >= MM_MIN_BLOCK_SPLIT) {
 		header->size = MM_CLR_FLAGS(size);
 		footer_t* footer = MM_FOOTER(header);
 		footer->size = size;
@@ -69,7 +69,7 @@ void mm_shrink_block(header_t* header, size_t size) {
 _Bool mm_grow_block(header_t* h, size_t size) {
 	size_t old_size = MM_GET_SIZE(h);
 
-	if ((void*)((uint8_t*)MM_FOOTER(h) + MM_MIN_BLOCK_SIZE) >= mm_heap_end)
+	if ((void*)((uint8_t*)MM_FOOTER(h) + MM_MIN_BLOCK_SPLIT) >= mm_heap_end)
 		return 0;
 
 	header_t* next = MM_NEXT_HEADER(h);
@@ -81,7 +81,7 @@ _Bool mm_grow_block(header_t* h, size_t size) {
 
 	mm_remove_free(next);
 
-	if (tot_size - size < MM_MIN_PAYLOAD) {
+	if (tot_size - size < MM_MIN_SPLIT) {
 		// The entire next block gets absorbed
 		tot_size = MM_CANARY_SIZE + MM_FOOTER_SIZE + tot_size + MM_HEADER_SIZE;
 		mm_poison_alloc_area((void*)next, MM_HEADER_SIZE + next_size);
@@ -106,6 +106,8 @@ _Bool mm_grow_block(header_t* h, size_t size) {
 }
 
 void* mm_malloc_block(size_t size) {
+	size = ALIGN_UP(size);
+
 	if (!mm_heap_initialized)
 		if (!mm_init_heap())
 			return NULL;
@@ -122,7 +124,7 @@ void* mm_malloc_block(size_t size) {
 	size_t free_size = MM_GET_SIZE(free_block);
 
 	// Check for whether the block should be split
-	if (free_size - size >= MM_MIN_BLOCK_SIZE) {
+	if (free_size - size >= MM_MIN_BLOCK_SPLIT) {
 		// Split case
 		size_t block_size = MM_HEADER_SIZE + size + MM_CANARY_SIZE + MM_FOOTER_SIZE;
 		header_t* new_free = (header_t*)((uint8_t*)free_block + block_size);

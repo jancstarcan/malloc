@@ -23,28 +23,24 @@ size_t mm_size_from_idx(size_t i) {
 void mm_add_to_free(header_t* h) {
 	size_t s = MM_GET_SIZE(h);
 	size_t i = mm_idx_from_size(s);
+	MM_SET_PREV(mm_free_list[i], h);
 	MM_SET_NEXT(h, mm_free_lists[i]);
+	MM_SET_PREV(h, NULL);
 	mm_free_lists[i] = h;
 	mm_free_map |= MM_BIN_BIT(i);
 }
 
 _Bool mm_remove_free(header_t* h) {
-	size_t s = MM_GET_SIZE(h);
-	size_t i = mm_idx_from_size(s);
-	header_t** cur = &mm_free_lists[i];
+	header_t* prev = MM_GET_PREV(h);
+	if (!prev) {
+		uint8_t i = mm_idx_from_size(MM_GET_SIZE(h));
+		
+		return 1;
+	}
 
-	while (*cur && *cur != h)
-		cur = &MM_GET_NEXT(*cur);
-
-	if (!*cur)
-		return 0;
-
-	*cur = MM_GET_NEXT(*cur);
-
-	if (!mm_free_lists[i])
-		mm_free_map &= ~MM_BIN_BIT(i);
-
-	return 1;
+	header_t* next = MM_GET_NEXT(h);
+	MM_SET_NEXT(prev, next);
+	MM_SET_PREV(next, prev);
 }
 
 header_t* mm_find_fit(size_t s) {

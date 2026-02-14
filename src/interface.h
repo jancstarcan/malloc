@@ -15,7 +15,7 @@
  *
  * Header->size encodes:
  *   - payload size (aligned)
- *   - MM__BIT (is allocated with mmap)
+ *   - MM_MMAP_BIT (is allocated with mmap)
  *   - MM_FREE_BIT (is free)
  *
  * Free list:
@@ -23,9 +23,10 @@
  *   - MM_BIN_COUNT lists, up to 63
  *   - Singly-linked
  *   - First-fit
- *   - In debug mode the next pointer is part of header_t
- *   - In release mode it's stored in the payload
- *   - Either way GET/SET _NEXT should be used
+ *   - In debug mode the next and previous pointers are part of header_t
+ *   - In release mode they're stored in the payload
+ *   - That is to try to prevent a use-after-free from corrupting the free list
+ *   - Either way GET/SET_PREV/NEXT is the correct way to access them
  *
  * Block layout:
  *
@@ -47,6 +48,7 @@
 #ifdef MM_DEBUG
 typedef struct header {
 	size_t size;
+	struct header* prev;
 	struct header* next;
 } header_t;
 #else
@@ -110,8 +112,9 @@ extern _Bool mm_heap_initialized;
 #define MM_CANARY_SIZE 0
 #endif
 
-#define MM_MIN_PAYLOAD (2 * MM_ALIGNMENT)
-#define MM_MIN_BLOCK_SIZE (MM_HEADER_SIZE + MM_MIN_PAYLOAD + MM_CANARY_SIZE + MM_FOOTER_SIZE)
+#define MM_MIN_PAYLOAD (ALIGN_UP(2 * sizeof(void*)))
+#define MM_MIN_SPLIT (2 * MM_ALIGNMENT)
+#define MM_MIN_BLOCK_SPLIT (HEADER_SIZE + MM_MIN_SPLIT + CANARY_SIZE + FOOTER_SIZE)
 
 #define MM_FREE_BIT 0x1
 #define MM_MMAP_BIT 0x2
@@ -151,20 +154,26 @@ extern _Bool mm_heap_initialized;
  * Pointer macros assume:
  *   - (h): a pointer to a header
  *   - (s): a pointer to a size_t
+ *   - (b): a pointer to the payload
  *   - Intact headers and footers
  *   - Undefined behavior if heap is corrupted
  *   - PREV_ MM_HEADER/MM_FOOTER assumes it's not the first block
  *   - NEXT_ MM_HEADER/MM_FOOTER assumes it's not the last block
  *
- * These macros will gladly read junk if the wrong pointer is provided
+ * These macros will gladly read junk if they aren't used correctly,
+ * all responsibility falls to the caller
  */
 
 #ifdef MM_DEBUG
 #define MM_GET_NEXT(h) ((h)->next)
 #define MM_SET_NEXT(h, n) ((h)->next = n)
+#define MM_GET_PREV(h) ((h)->prev)
+#define MM_SET_PREV(h, n) ((h)->prev = n)
 #else
 #define MM_GET_NEXT(h) (*(header_t**)((uint8_t*)(h) + MM_HEADER_SIZE))
 #define MM_SET_NEXT(h, n) (*((header_t**)((uint8_t*)(h) + MM_HEADER_SIZE)) = (n))
+#define MM_GET_PREV(h) (*(header_t**)((uint8_t*)(h) + MM_HEADER_SIZE + sizeof(void*)))
+#define MM_SET_PREV(h, n) (*((header_t**)((uint8_t*)(h) + MM_HEADER_SIZE + sizeof(void*))) = (n))
 #endif
 
 #define MM_HEADER(p) ((header_t*)((uint8_t*)(p) - MM_HEADER_SIZE))
@@ -174,6 +183,7 @@ extern _Bool mm_heap_initialized;
 #define MM_PREV_FOOTER(h) ((footer_t*)((uint8_t*)(h) - MM_FOOTER_SIZE))
 #define MM_PREV_HEADER(h) ((header_t*)((uint8_t*)MM_PREV_FOOTER(h) - MM_CANARY_SIZE - MM_PREV_FOOTER(h)->size - MM_HEADER_SIZE))
 #define MM_NEXT_HEADER(h) ((header_t*)((uint8_t*)(h) + MM_HEADER_SIZE + MM_GET_SIZE(h) + MM_CANARY_SIZE + MM_FOOTER_SIZE))
+#define MM_MAX(a, b) (a > b ? a : b)
 
 #define MM_ABORT() __builtin_trap()
 
