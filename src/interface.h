@@ -110,6 +110,9 @@ extern _Bool mm_heap_initialized;
 #define MM_CANARY_SIZE MM_ALIGN_UP(sizeof(size_t))
 #define MM_ENABLE_CANARIES
 #define MM_ENABLE_POISONING
+
+#define MM_SAFE_ADD
+#define MM_SAFE_REMOVE
 #else
 #define MM_CANARY_SIZE 0
 #endif
