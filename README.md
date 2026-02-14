@@ -16,17 +16,17 @@ In debug mode it keeps track of:
 
 ## Block Layout
 **Normal:**
-```
+
 | Header | Payload |
 |--------|---------|
-```
+
 Next and previous pointers are stored in the payload
 
 **Debug:**
-```
+
 | Header | Payload | Canary |
 |--------|---------|--------|
-```
+
 Next and previous pointers are stored in the header
 
 ## Memory Management
