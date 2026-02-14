@@ -107,14 +107,16 @@ header_t* mm_find_fit(size_t s) {
 			cur = MM_GET_NEXT_PTR(*cur);
 		}
 
-		if (*cur)
+		if (*cur) {
 			break;
+		}
 
 		i++;
 	}
 
-	if (!*cur)
+	if (!*cur) {
 		return NULL;
+	}
 
 	header_t* ret = *cur;
 	mm_remove_free(ret);

@@ -231,6 +231,8 @@ _Bool mm_init_heap(void);
 _Bool mm_grow_heap(void);
 void* mm_mmap_alloc(size_t size);
 void mm_mmap_free(header_t* header);
+size_t mm_idx_from_size(size_t s);
+size_t mm_size_from_idx(size_t i);
 
 // free_list.c
 void mm_add_to_free(header_t* h);

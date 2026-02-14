@@ -51,6 +51,10 @@ _Bool mm_init_heap(void) {
 	header_t* h = (header_t*)mm_heap_start;
 	h->size = MM_SET_XFREE(payload);
 	h->prev = NULL;
+#ifdef MM_DEBUG
+	h->prev_free = NULL;
+	h->next_free = NULL;
+#endif
 	MM_SET_NEXT(h, NULL);
 	MM_SET_PREV(h, NULL);
 	mm_add_to_free(h);
@@ -78,7 +82,7 @@ _Bool mm_grow_heap(void) {
 
 	header_t* last_header;
 	header_t* next_header = mm_heap_start;
-	while ((void*)next_header < mm_heap_end) {
+	while ((void*)next_header < old_end) {
 		last_header = next_header;
 		next_header = MM_NEXT_HEADER(next_header);
 	}
@@ -105,6 +109,14 @@ _Bool mm_grow_heap(void) {
 	mm_poison_free(payload);
 	mm_write_canary(MM_HEADER(payload));
 
+	for (int i = 0; i < MM_BIN_COUNT; i++) {
+		int count = 0;
+		header_t* cur = mm_free_lists[i];
+		while (cur) {
+			count++;
+			cur = MM_GET_NEXT(cur);
+		}
+	}
 	return 1;
 }
 

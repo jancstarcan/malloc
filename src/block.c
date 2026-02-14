@@ -18,7 +18,7 @@ void mm_coalesce_prev(header_t** header_ptr) {
 	size_t tot_size = prev_size + MM_METADATA_SIZE + size;
 	prev->size = MM_SET_XFREE(tot_size);
 
-	if ((void*)MM_NEXT_HEADER(h) < mm_heap_end) {
+	if ((void*)MM_NEXT_HEADER(prev) < mm_heap_end) {
 		MM_LINK_NEXT_HEADER(prev);
 	}
 
@@ -62,6 +62,8 @@ void mm_shrink_block(header_t* header, size_t size, _Bool is_free) {
 
 		mm_coalesce_next(new_free);
 		mm_add_to_free(new_free);
+	} else {
+		header->size = MM_GET_SIZE(header) | (is_free ? MM_FREE_BIT : 0);
 	}
 }
 
@@ -84,7 +86,7 @@ _Bool mm_grow_block(header_t* h, size_t size, _Bool is_free) {
 
 	mm_remove_free(next);
 
-	if (tot_size - size < MM_MIN_SPLIT) {
+	if (free_space - size < MM_MIN_SPLIT) {
 		// The entire next block gets absorbed
 		mm_poison_alloc_area((void*)next, MM_HEADER_SIZE + next_size);
 		h->size = MM_CLR_FLAGS(free_space);
@@ -97,6 +99,11 @@ _Bool mm_grow_block(header_t* h, size_t size, _Bool is_free) {
 
 		next = MM_NEXT_HEADER(h);
 		next->size = MM_SET_XFREE(tot_size - size);
+		next->prev = h;
+
+		if ((void*)MM_NEXT_HEADER(next) < mm_heap_end) {
+			MM_LINK_NEXT_HEADER(next);
+		}
 
 		mm_add_to_free(next);
 	}
@@ -126,6 +133,5 @@ void* mm_malloc_block(size_t size) {
 	}
 
 	mm_shrink_block(free_block, size, 0);
-
 	return (void*)((uint8_t*)free_block + MM_HEADER_SIZE);
 }
