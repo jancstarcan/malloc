@@ -1,87 +1,95 @@
-# Custom C allocator
-This allocator uses a segregated free list design over an sbrk heap, or mmap for larger allocations. Blocks contain headers and footers to support constant-time coalescing. In debug mode, additional integrity checks, canaries, and payload poisoning are enabled.
+# Custom C Allocator
+A custom implementation of malloc/free/realloc/calloc using segregated free lists and an sbrk heap.
 
 ## Features
-- sbrk heap
-- mmap for large allocations
-- coalescing
-- segregated free lists
-- debug mode
-
-## Debug mode
-- Consistency checks between header and footer for the entire heap
-- Checks that every block in the free list is marked free
-- Enables canaries and payload poisoning
-- Keeps track of how much memory was allocated
+- **Segregated free lists** - 32 size classes with bitmap search
+- **Hybrid size classes** - Exponential bins starting from 16 bytes
+- **Boundary-tag coalescing** - Bidirectional coalescing using pointers in the header (no footers)
+- **mmap for large allocations** - Allocations ≥128KiB bypass the heap and get their own page-aligned block of memory
+- **Debug mode** - Canaries, poisoning, and integrity checks
 
 ### Statistics
-- In debug mode it keeps track of:
-  - Heap size
-  - Number of allocations
-  - Number of allocated bytes
+In debug mode it keeps track of:
+- Heap size
+- Number of allocations
+- Number of allocated bytes
 
-## Block layout
-- Normal:
-   | Header | Payload | Footer |
-   |--------|---------|--------|
+## Block Layout
+**Normal:**
+```
+| Header | Payload |
+|--------|---------|
+```
+Next and previous pointers are stored in the payload
 
-   Next pointer is stored in the payload
+**Debug:**
+```
+| Header | Payload | Canary |
+|--------|---------|--------|
+```
+Next and previous pointers are stored in the header
 
-- Debug:
-   | Header | Payload | Canary | Footer |
-   |--------|---------|--------|--------|
+## Memory Management
+- **Small allocations** (<128KiB): Allocated from sbrk heap
+- **Large allocations** (≥128KiB): Direct mmap allocation
+- **Heap growth**: Doubles each time, starting at 4KiB
+- **Coalescing**: Forward and backward coalescing on every free
 
-   Next pointer is stored in the header
+## Segregated Free Lists
+- 32 bins tracked with a 32-bit bitmap
+- Exponential size classes (powers of 2)
+- First-fit allocation within each bin
+- O(1) bin lookup using `__builtin_ctz()`
 
-## Flag encoding
-- There are two flags encoded in the low bits of the header's size:
-  - bit 0: mark block as free
-  - bit 1: mark block as mmap-allocated
-- Footers store the size without flags
+## Debug Features
+When compiled with `-DMM_DEBUG`:
+- **Canaries**: Detect buffer overflows
+- **Poisoning**: 0xAA for allocated, 0xDD for freed memory
+- **Heap integrity**: Verify all block headers/prev pointers
+- **Free list checks**: Ensures all free blocks are properly marked
+- **Statistics**: Tracks heap size, allocation count, bytes allocated
 
-## Memory management
-- An sbrk heap is used for allocations smaller than 128KiB.
-- The heap grows geometrycally. Each extension doubles the previous size, starting from `INITIAL_HEAP_SIZE`
-- mmap is used to allocate memory directly for allocations larger than 128KiB, so that it may be returned to the OS
-- Coalescing occurs on every `free()`. Both the previous and next blocks are checked
-
-## Free list
-- Multiple segregated lists, each first-fit
-- The size class ranges double with each list
-- The number of lists can be specified in interface.h, with up to 63 lists
-
-## Design invariants
+## Design Invariants
 - All blocks are `max_align_t` aligned
 - Free blocks appear in exactly one free list
-- Header and footer sizes must match (except for mmap blocks)
-- mmap never participate in coalescing
+- `prev` pointers must always be up-to-date
+- mmap blocks never participate in coalescing
+- Flag bits (FREE_BIT, MMAP_BIT) encoded in low bits of size
 
-## Edge cases
-- `malloc(0)` -> `NULL`
-- `free(NULL)` -> no-op
-- `realloc(NULL, size)` -> `malloc(size)`
-- `realloc(ptr, 0)` -> `free(ptr)`
+## Edge Cases
+- `malloc(0)` → `NULL`
+- `free(NULL)` → no-op
+- `realloc(NULL, size)` → `malloc(size)`
+- `realloc(ptr, 0)` → `free(ptr); return NULL`
 
 ## Build
-- `make debug` - Debug test build
-- `make release` - Optimized test build
-- `make ddynlib` - Debug dynamically linked library
-- `make rdynlib` - Optimized dynamically linked library
-- `make dstatlib` - Debug statically linked library
-- `make rstatlib` - Optimized statically linked library
+```bash
+make debug      # Debug test build
+make release    # Optimized test build
+make ddynlib    # Debug shared library
+make rdynlib    # Release shared library
+make dstatlib   # Debug static library
+make rstatlib   # Release static library
+```
 
 ## Tests
-- ./test.bin
+```bash
+./test.bin                    # Run test suite
+LD_PRELOAD=./malloc.so <cmd>  # Test with real programs (single-threaded only)
+```
+
+## Known Limitations
+- Linux only (uses sbrk, specific mmap flags)
+- Single-threaded (no locks or thread-local arenas)
+- Requires GCC/Clang (uses `__builtin_ctz`, `__builtin_clzll`)
 
 ## TODO
-- Improve test.c
-- Add more debug mode checks and statistics
+- [ ] Region-based arenas (replace global sbrk heap)
+- [ ] Thread-safety (per-thread arenas)
+- [ ] Improve test coverage
+- [ ] Add benchmarking suite
 
-## Non-goals
-- High-performance production use
-- Lock-free or wait-free guarantees
-- Thread-safety
-
-## Known limitations
-- It only works on Linux
-- Most likely depends on GCC/Clang
+## Non-Goals
+- Production use or performance competitive with glibc/jemalloc
+- Lock-free data structures
+- NUMA awareness
