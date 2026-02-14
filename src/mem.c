@@ -88,14 +88,14 @@ void* realloc(void* ptr, size_t size) {
 		// No change in size
 		return ptr;
 	} else if (size < old_size) {
-		mm_shrink_block(header, size);
+		mm_shrink_block(header, size, 0);
 
 		mm_write_canary(header);
 		MM_RUN_CHECKS();
 		return ptr;
 	}
 
-	if (mm_grow_block(header, size)) {
+	if (mm_grow_block(header, size, 0)) {
 		mm_write_canary(header);
 		mm_add_alloced(size - old_size, 0);
 		MM_RUN_CHECKS();

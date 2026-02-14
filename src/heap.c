@@ -46,12 +46,13 @@ _Bool mm_init_heap(void) {
 
 	mm_heap_end = sbrk(0);
 
-	size_t payload = mm_heap_size - MM_HEADER_SIZE - MM_CANARY_SIZE - MM_FOOTER_SIZE;
+	size_t payload = mm_heap_size - MM_METADATA_SIZE;
 
 	header_t* h = (header_t*)mm_heap_start;
 	h->size = MM_SET_XFREE(payload);
+	h->prev = NULL;
 	MM_SET_NEXT(h, NULL);
-	MM_FOOTER(h)->size = payload;
+	MM_SET_PREV(h, NULL);
 	mm_add_to_free(h);
 
 	mm_poison_free(MM_PAYLOAD(h));
@@ -75,8 +76,12 @@ _Bool mm_grow_heap(void) {
 
 	mm_heap_end = sbrk(0);
 
-	footer_t* last_footer = (footer_t*)((uint8_t*)old_end - MM_FOOTER_SIZE);
-	header_t* last_header = (header_t*)((uint8_t*)last_footer - MM_CANARY_SIZE - last_footer->size - MM_HEADER_SIZE);
+	header_t* last_header;
+	header_t* next_header = mm_heap_start;
+	while ((void*)next_header < mm_heap_end) {
+		last_header = next_header;
+		next_header = MM_NEXT_HEADER(next_header);
+	}
 	void* payload;
 
 	// If the last block is free it gets extended
@@ -85,20 +90,20 @@ _Bool mm_grow_heap(void) {
 		mm_remove_free(last_header);
 		size_t new_size = mm_heap_size + MM_GET_SIZE(last_header);
 		last_header->size = MM_SET_XFREE(new_size);
-		MM_FOOTER(last_header)->size = new_size;
 		mm_add_to_free(last_header);
 		payload = MM_PAYLOAD(last_header);
 	} else {
 		header_t* new_header = (header_t*)old_end;
-		size_t new_size = mm_heap_size - MM_HEADER_SIZE - MM_CANARY_SIZE - MM_FOOTER_SIZE;
+		size_t new_size = mm_heap_size - MM_METADATA_SIZE;
 		new_header->size = MM_SET_XFREE(new_size);
-		MM_FOOTER(new_header)->size = new_size;
-		payload = MM_PAYLOAD(new_header);
+		new_header->prev = last_header;
 		mm_add_to_free(new_header);
+		payload = MM_PAYLOAD(new_header);
 	}
 
 	mm_heap_size *= 2;
 	mm_poison_free(payload);
+	mm_write_canary(MM_HEADER(payload));
 
 	return 1;
 }
@@ -107,7 +112,7 @@ _Bool mm_grow_heap(void) {
 // should only be used on big chunks
 void* mm_mmap_alloc(size_t size) {
 	size = MM_ALIGN_UP(size);
-	size_t tot_size = size + MM_HEADER_SIZE + MM_CANARY_SIZE;
+	size_t tot_size = MM_PAGE_ALIGN(size + MM_METADATA_SIZE);
 	void* new = mmap(NULL, tot_size, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
 	if (new == (void*)-1) {
@@ -124,7 +129,7 @@ void* mm_mmap_alloc(size_t size) {
 }
 
 void mm_mmap_free(header_t* header) {
-	size_t size = MM_HEADER_SIZE + MM_GET_SIZE(header) + MM_CANARY_SIZE;
+	size_t size = MM_GET_SIZE(header) + MM_METADATA_SIZE;
 
 	if (munmap((void*)header, size) == -1) {
 #ifdef MM_DEBUG

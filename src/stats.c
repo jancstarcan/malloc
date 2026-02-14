@@ -30,7 +30,7 @@ inline void mm_add_alloced(size_t n, _Bool mmap) {
 void mm_print_alloced(void) {
 	char buf[64];
 	header_t* h = mm_heap_start;
-	footer_t* f;
+	header_t* f;
 	size_t s;
 
 	printf("Heap:\n");
@@ -41,10 +41,10 @@ void mm_print_alloced(void) {
 		}
 
 		s = MM_GET_SIZE(h);
-		f = MM_FOOTER(h);
+		f = h->prev;
 
-		if (s != f->size) {
-			fprintf(stderr, "MM_FOOTER MISMATCH at %p\n", (void*)h);
+		if (h != f->prev) {
+			fprintf(stderr, "header->prev MISMATCH at %p\n", (void*)h);
 			MM_ABORT();
 		}
 

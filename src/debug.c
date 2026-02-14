@@ -84,13 +84,17 @@ inline void mm_poison_alloc_area(void* p, size_t s) {}
 
 void mm_heap_check(void) {
 	header_t* cur = (header_t*)mm_heap_start;
-	while ((void*)cur < mm_heap_end) {
+	for (;;) {
 		size_t size = MM_GET_SIZE(cur);
-		footer_t* footer = MM_FOOTER(cur);
 
+		assert((uintptr_t)cur % MM_ALIGNMENT == 0);
 		assert(size % MM_ALIGNMENT == 0);
-		assert(footer->size == size);
 
+		if ((void*)MM_NEXT_HEADER(cur) >= mm_heap_end) {
+			break;
+		}
+
+		assert(MM_NEXT_HEADER(cur)->prev == cur);
 		cur = MM_NEXT_HEADER(cur);
 	}
 }

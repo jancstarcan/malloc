@@ -9,6 +9,7 @@
 #include <stdalign.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <unistd.h>
 
 /*
  * INTERNAL ALLOCATOR LAYOUT
@@ -31,37 +32,33 @@
  * Block layout:
  *
  *   Normal:
- *     [ Header | Payload | Footer ]
+ *     [ Header | Payload ]
  *
  *   DEBUG:
- *     [ Header | Payload | Canary | Footer ]
+ *     [ Header | Payload | Canary ]
  *
  * Invariants:
  *   - Free blocks must be in the free list
- *   - Header and footer must always match
  *   - The free list must not include duplicates
- *   - Footer stores payload size WITHOUT flags.
  *   - All blocks are MM_ALIGNMENT-aligned
- *   - mmap allocated blocks don't have footers
+ *   - header->prev must always be correct
  */
 
 #ifdef MM_DEBUG
 typedef struct header {
 	size_t size;
 	struct header* prev;
-	struct header* next;
+	struct header* prev_free;
+	struct header* next_free;
 } header_t;
 #define MM_PAYLOAD_PTRS 0
 #else
-typedef struct {
+typedef struct header {
 	size_t size;
+	struct header* prev;
 } header_t;
 #define MM_PAYLOAD_PTRS 2
 #endif
-
-typedef struct {
-	size_t size;
-} footer_t;
 
 #define MM_BIN_COUNT 32
 #define MM_BIN_BASE MM_ALIGNMENT
@@ -100,8 +97,8 @@ extern _Bool mm_heap_initialized;
 #define MM_ALIGNMENT alignof(max_align_t)
 #define MM_ALIGN_UP(x) (((x) + MM_ALIGNMENT - 1) & ~(MM_ALIGNMENT - 1))
 
-#define MM_HEADER_SIZE MM_ALIGN_UP(sizeof(header_t))
-#define MM_FOOTER_SIZE MM_ALIGN_UP(sizeof(footer_t))
+#define MM_PAGE_SIZE sysconf(_SC_PAGESIZE)
+#define MM_PAGE_ALIGN(x) (((x) + MM_PAGE_SIZE - 1) & ~(MM_PAGE_SIZE - 1))
 
 #ifdef MM_DEBUG
 #define MM_CANARY_BYTE 0xCC
@@ -117,9 +114,12 @@ extern _Bool mm_heap_initialized;
 #define MM_CANARY_SIZE 0
 #endif
 
+#define MM_HEADER_SIZE MM_ALIGN_UP(sizeof(header_t))
+#define MM_METADATA_SIZE (MM_HEADER_SIZE + MM_CANARY_SIZE)
+
 #define MM_MIN_PAYLOAD (MM_ALIGN_UP(MM_PAYLOAD_PTRS * sizeof(void*)))
 #define MM_MIN_SPLIT (2 * MM_ALIGNMENT)
-#define MM_MIN_BLOCK_SPLIT (MM_HEADER_SIZE + MM_MIN_SPLIT + MM_CANARY_SIZE + MM_FOOTER_SIZE)
+#define MM_MIN_BLOCK_SPLIT (MM_MIN_SPLIT + MM_METADATA_SIZE)
 
 #define MM_FREE_BIT 0x1
 #define MM_MMAP_BIT 0x2
@@ -160,34 +160,42 @@ extern _Bool mm_heap_initialized;
  *   - (h): a pointer to a header
  *   - (s): a pointer to a size_t
  *   - (b): a pointer to the payload
- *   - Intact headers and footers
  *   - Undefined behavior if heap is corrupted
- *   - PREV_ MM_HEADER/MM_FOOTER assumes it's not the first block
- *   - NEXT_ MM_HEADER/MM_FOOTER assumes it's not the last block
+ *   - MM_PREV_ HEADER assumes it's not the first block
+ *   - MM_NEXT_ HEADER assumes it's not the last block
  *
  * These macros will gladly read junk if they aren't used correctly,
  * all responsibility falls to the caller
  */
 
 #ifdef MM_DEBUG
-#define MM_GET_NEXT(h) ((h)->next)
-#define MM_SET_NEXT(h, n) ((h)->next = n)
-#define MM_GET_PREV(h) ((h)->prev)
-#define MM_SET_PREV(h, n) ((h)->prev = n)
+static inline header_t** MM_GET_NEXT_PTR(header_t* h) { return &h->next_free; }
+static inline void MM_SET_NEXT(header_t* h, header_t* next) { h->next_free = next; }
+static inline header_t** MM_GET_PREV_PTR(header_t* h) { return &h->prev_free; }
+static inline void MM_SET_PREV(header_t* h, header_t* prev) { h->prev_free = prev; }
 #else
-#define MM_GET_NEXT(h) (*(header_t**)((uint8_t*)(h) + MM_HEADER_SIZE))
-#define MM_SET_NEXT(h, n) (*((header_t**)((uint8_t*)(h) + MM_HEADER_SIZE)) = (n))
-#define MM_GET_PREV(h) (*(header_t**)((uint8_t*)(h) + MM_HEADER_SIZE + sizeof(void*)))
-#define MM_SET_PREV(h, n) (*((header_t**)((uint8_t*)(h) + MM_HEADER_SIZE + sizeof(void*))) = (n))
+static inline header_t** MM_GET_NEXT_PTR(header_t* h) { return (header_t**)((uint8_t*)h + MM_HEADER_SIZE); }
+static inline void MM_SET_NEXT(header_t* h, header_t* next) { *((header_t**)((uint8_t*)h + MM_HEADER_SIZE)) = next; }
+static inline header_t** MM_GET_PREV_PTR(header_t* h) { return (header_t**)((uint8_t*)h + MM_HEADER_SIZE + sizeof(void*)); }
+static inline void MM_SET_PREV(header_t* h, header_t* prev) {
+	*((header_t**)((uint8_t*)h + MM_HEADER_SIZE + sizeof(void*))) = prev;
+}
 #endif
+static inline header_t* MM_GET_NEXT(header_t* h) { return *MM_GET_NEXT_PTR(h); }
+static inline header_t* MM_GET_PREV(header_t* h) { return *MM_GET_PREV_PTR(h); }
 
-#define MM_HEADER(p) ((header_t*)((uint8_t*)(p) - MM_HEADER_SIZE))
-#define MM_CANARY(h) ((size_t*)((uint8_t*)(h) + MM_HEADER_SIZE + MM_GET_SIZE(h)))
-#define MM_FOOTER(h) ((footer_t*)((uint8_t*)(h) + MM_HEADER_SIZE + MM_GET_SIZE(h) + MM_CANARY_SIZE))
-#define MM_PAYLOAD(h) ((void*)((uint8_t*)(h) + MM_HEADER_SIZE))
-#define MM_PREV_FOOTER(h) ((footer_t*)((uint8_t*)(h) - MM_FOOTER_SIZE))
-#define MM_PREV_HEADER(h) ((header_t*)((uint8_t*)MM_PREV_FOOTER(h) - MM_CANARY_SIZE - MM_PREV_FOOTER(h)->size - MM_HEADER_SIZE))
-#define MM_NEXT_HEADER(h) ((header_t*)((uint8_t*)(h) + MM_HEADER_SIZE + MM_GET_SIZE(h) + MM_CANARY_SIZE + MM_FOOTER_SIZE))
+// #define MM_HEADER(p) ((header_t*)((uint8_t*)(p) - MM_HEADER_SIZE))
+// #define MM_CANARY(h) ((size_t*)((uint8_t*)(h) + MM_HEADER_SIZE + MM_GET_SIZE(h)))
+// #define MM_PAYLOAD(h) ((void*)((uint8_t*)(h) + MM_HEADER_SIZE))
+// #define MM_NEXT_HEADER(h) ((header_t*)((uint8_t*)(h) + MM_HEADER_SIZE + MM_GET_SIZE(h) + MM_CANARY_SIZE))
+// #define MM_LINK_NEXT_HEADER(h) (MM_NEXT_HEADER(h)->prev = (h));
+static inline header_t* MM_HEADER(void* payload) { return (header_t*)((uint8_t*)payload - MM_HEADER_SIZE); }
+static inline size_t* MM_CANARY(header_t* h) { return (size_t*)((uint8_t*)h + MM_HEADER_SIZE + MM_GET_SIZE(h)); }
+static inline void* MM_PAYLOAD(header_t* h) { return (void*)((uint8_t*)h + MM_HEADER_SIZE); }
+static inline header_t* MM_NEXT_HEADER(header_t* h) {
+	return (header_t*)((uint8_t*)h + MM_GET_SIZE(h) + MM_METADATA_SIZE);
+}
+static inline void MM_LINK_NEXT_HEADER(header_t* h) { MM_NEXT_HEADER(h)->prev = h; }
 #define MM_MAX(a, b) (a > b ? a : b)
 
 #define MM_ABORT() __builtin_trap()
@@ -232,8 +240,8 @@ header_t* mm_find_fit(size_t size);
 // block.c
 void mm_coalesce_prev(header_t** header_ptr);
 void mm_coalesce_next(header_t* header);
-void mm_shrink_block(header_t* header, size_t size);
-_Bool mm_grow_block(header_t* header, size_t size);
+void mm_shrink_block(header_t* header, size_t size, _Bool is_free);
+_Bool mm_grow_block(header_t* header, size_t size, _Bool is_free);
 void* mm_malloc_block(size_t size);
 
 // mem.c

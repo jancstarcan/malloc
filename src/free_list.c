@@ -52,7 +52,7 @@ _Bool mm_remove_free(header_t* h) {
 	header_t** cur = &mm_free_lists[i];
 
 	while (*cur && *cur != h)
-		cur = &MM_GET_NEXT(*cur);
+		cur = MM_GET_NEXT_PTR(*cur);
 
 	if (!*cur)
 		return 0;
@@ -104,7 +104,7 @@ header_t* mm_find_fit(size_t s) {
 			if (MM_GET_SIZE(*cur) >= s)
 				break;
 
-			cur = &MM_GET_NEXT(*cur);
+			cur = MM_GET_NEXT_PTR(*cur);
 		}
 
 		if (*cur)
