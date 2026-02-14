@@ -1,4 +1,5 @@
 #include "interface.h"
+#include <stdio.h>
 
 header_t* mm_free_lists[MM_BIN_COUNT] = {0};
 free_map_t mm_free_map = 0;
@@ -20,28 +21,72 @@ size_t mm_size_from_idx(size_t i) {
 	return MM_BIN_BASE << i;
 }
 
+#ifdef MM_SAFE_ADD
 void mm_add_to_free(header_t* h) {
 	size_t s = MM_GET_SIZE(h);
 	size_t i = mm_idx_from_size(s);
-	MM_SET_PREV(mm_free_list[i], h);
+	MM_SET_NEXT(h, mm_free_lists[i]);
+	mm_free_lists[i] = h;
+	mm_free_map |= MM_BIN_BIT(i);
+}
+#else
+void mm_add_to_free(header_t* h) {
+	size_t s = MM_GET_SIZE(h);
+	size_t i = mm_idx_from_size(s);
+	header_t* old_head = mm_free_lists[i];
+	if (old_head) {
+		MM_SET_PREV(mm_free_lists[i], h);
+	}
+
 	MM_SET_NEXT(h, mm_free_lists[i]);
 	MM_SET_PREV(h, NULL);
 	mm_free_lists[i] = h;
 	mm_free_map |= MM_BIN_BIT(i);
 }
+#endif
 
+#ifdef MM_SAFE_REMOVE
+_Bool mm_remove_free(header_t* h) {
+	size_t s = MM_GET_SIZE(h);
+	size_t i = mm_idx_from_size(s);
+	header_t** cur = &mm_free_lists[i];
+
+	while (*cur && *cur != h)
+		cur = &MM_GET_NEXT(*cur);
+
+	if (!*cur)
+		return 0;
+
+	*cur = MM_GET_NEXT(*cur);
+
+	if (!mm_free_lists[i])
+		mm_free_map &= ~MM_BIN_BIT(i);
+
+	return 1;
+}
+#else
 _Bool mm_remove_free(header_t* h) {
 	header_t* prev = MM_GET_PREV(h);
+	header_t* next = MM_GET_NEXT(h);
+
 	if (!prev) {
-		uint8_t i = mm_idx_from_size(MM_GET_SIZE(h));
-		
-		return 1;
+		size_t i = mm_idx_from_size(MM_GET_SIZE(h));
+		mm_free_lists[i] = next;
+		if (next) {
+			MM_SET_PREV(next, NULL);
+		} else {
+			mm_free_map &= ~MM_BIN_BIT(i);
+		}
+	} else {
+		MM_SET_NEXT(prev, next);
+		if (next) {
+			MM_SET_PREV(next, prev);
+		}
 	}
 
-	header_t* next = MM_GET_NEXT(h);
-	MM_SET_NEXT(prev, next);
-	MM_SET_PREV(next, prev);
+	return 1;
 }
+#endif
 
 header_t* mm_find_fit(size_t s) {
 	size_t i = mm_idx_from_size(s);
@@ -72,7 +117,7 @@ header_t* mm_find_fit(size_t s) {
 		return NULL;
 
 	header_t* ret = *cur;
-	*cur = MM_GET_NEXT(*cur);
+	mm_remove_free(ret);
 
 	if (!mm_free_lists[i])
 		mm_free_map &= ~MM_BIN_BIT(i);

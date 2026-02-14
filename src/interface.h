@@ -51,10 +51,12 @@ typedef struct header {
 	struct header* prev;
 	struct header* next;
 } header_t;
+#define MM_PAYLOAD_PTRS 0
 #else
 typedef struct {
 	size_t size;
 } header_t;
+#define MM_PAYLOAD_PTRS 2
 #endif
 
 typedef struct {
@@ -112,9 +114,9 @@ extern _Bool mm_heap_initialized;
 #define MM_CANARY_SIZE 0
 #endif
 
-#define MM_MIN_PAYLOAD (ALIGN_UP(2 * sizeof(void*)))
+#define MM_MIN_PAYLOAD (MM_ALIGN_UP(MM_PAYLOAD_PTRS * sizeof(void*)))
 #define MM_MIN_SPLIT (2 * MM_ALIGNMENT)
-#define MM_MIN_BLOCK_SPLIT (HEADER_SIZE + MM_MIN_SPLIT + CANARY_SIZE + FOOTER_SIZE)
+#define MM_MIN_BLOCK_SPLIT (MM_HEADER_SIZE + MM_MIN_SPLIT + MM_CANARY_SIZE + MM_FOOTER_SIZE)
 
 #define MM_FREE_BIT 0x1
 #define MM_MMAP_BIT 0x2

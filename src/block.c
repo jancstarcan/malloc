@@ -4,17 +4,12 @@
 
 void mm_coalesce_prev(header_t** header_ptr) {
 	header_t* cur = *header_ptr;
-	header_t* prev = (uint8_t*)cur >= (uint8_t*)mm_heap_start + MM_MIN_BLOCK_SIZE ? MM_PREV_HEADER(cur) : NULL;
+	header_t* prev = (uint8_t*)cur >= (uint8_t*)mm_heap_start + MM_MIN_BLOCK_SPLIT ? MM_PREV_HEADER(cur) : NULL;
 
 	if (!prev || !MM_IS_FREE(prev))
 		return;
 
-	if (!mm_remove_free(prev)) {
-#ifdef MM_DEBUG
-		fprintf(stderr, "Block is marked as free but isn't in the free list\n");
-		MM_ABORT();
-#endif
-	}
+	mm_remove_free(prev);
 
 	size_t cur_size = MM_GET_SIZE(cur);
 	size_t prev_size = MM_GET_SIZE(prev);
@@ -32,12 +27,7 @@ void mm_coalesce_next(header_t* cur) {
 	if ((uint8_t*)next + MM_HEADER_SIZE > (uint8_t*)mm_heap_end || !MM_IS_FREE(next))
 		return;
 
-	if (!mm_remove_free(next)) {
-#ifdef MM_DEBUG
-		fprintf(stderr, "Block is marked as free but isn't in the free list\n");
-		MM_ABORT();
-#endif
-	}
+	mm_remove_free(next);
 
 	size_t cur_size = MM_GET_SIZE(cur);
 	size_t next_size = MM_GET_SIZE(next);
@@ -106,7 +96,7 @@ _Bool mm_grow_block(header_t* h, size_t size) {
 }
 
 void* mm_malloc_block(size_t size) {
-	size = ALIGN_UP(size);
+	size = MM_ALIGN_UP(size);
 
 	if (!mm_heap_initialized)
 		if (!mm_init_heap())
