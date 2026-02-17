@@ -144,7 +144,9 @@ extern _Bool mm_arena_initialized;
 // #define MM_BIN_BIT(i) ((free_map_t)1 << (i))
 static inline free_map_t mm_bin_bit(size_t i) { return (free_map_t)1 << (i); }
 
-static inline void* mm_reg_align(void* ptr) {return (void*)(((uintptr_t)ptr + MM_REG_SIZE - 1) & ~((uintptr_t)MM_REG_SIZE - 1));}
+static inline void* mm_reg_align(void* ptr) {
+	return (void*)(((uintptr_t)ptr + MM_REG_SIZE - 1) & ~((uintptr_t)MM_REG_SIZE - 1));
+}
 
 /*
  * MM_GET_SIZE(b): extracts payload size from header

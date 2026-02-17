@@ -35,10 +35,15 @@ void free(void* ptr) {
 	header_t* header = mm_header(ptr);
 	mm_check_canary(header);
 
+	if (mm_is_mmap(header)) {
+		mm_mmap_free(header);
+		return;
+	}
+
 #ifdef MM_DEBUG
 	region_t* reg = mm_get_reg(header);
 	void* reg_end = mm_get_reg_end(reg);
-	if (((void*)header < reg->start || (void*)header >= reg_end) && !mm_is_mmap(header)) {
+	if (((void*)header < reg->start || (void*)header >= reg_end)) {
 		fprintf(stderr, "Ptr is not in the accepted range\n");
 		fflush(stderr);
 		MM_ABORT();
@@ -46,11 +51,6 @@ void free(void* ptr) {
 #endif
 
 	mm_poison_free(ptr);
-
-	if (mm_is_mmap(header)) {
-		mm_mmap_free(header);
-		return;
-	}
 
 	// Double free check
 	if (mm_is_free(header)) {

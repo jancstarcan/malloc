@@ -8,15 +8,13 @@ void mm_debug_test(void) {
 	arena_t* arena = &mm_arena;
 	region_t* reg;
 
-	while (arena) {
-		reg = arena->start;
-		while (reg) {
-			mm_reg_check(reg);
-			reg = reg->next;
-		}
-
-		mm_free_check(&arena->free);
+	reg = arena->start;
+	while (reg) {
+		mm_reg_check(reg);
+		reg = reg->next;
 	}
+
+	mm_free_check(&arena->free);
 }
 
 #ifdef MM_ENABLE_CANARIES
