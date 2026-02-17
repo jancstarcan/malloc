@@ -1,9 +1,6 @@
 #include "interface.h"
 #include <stdio.h>
 
-header_t* mm_free_lists[MM_BIN_COUNT] = {0};
-free_map_t mm_free_map = 0;
-
 size_t mm_idx_from_size(size_t s) {
 	size_t bits = sizeof(size_t) * 8;
 	size_t units = s / MM_BIN_BASE;
@@ -23,64 +20,84 @@ size_t mm_size_from_idx(size_t i) {
 
 #ifdef MM_SAFE_ADD
 void mm_add_to_free(header_t* h) {
-	size_t s = MM_GET_SIZE(h);
+	region_t* reg = mm_get_reg(h);
+	free_list_t* free = &reg->arena->free;
+	header_t** lists = free->start;
+	free_map_t* bitmap = &free->bitmap;
+
+	size_t s = mm_get_size(h);
 	size_t i = mm_idx_from_size(s);
-	MM_SET_NEXT(h, mm_free_lists[i]);
-	mm_free_lists[i] = h;
-	mm_free_map |= MM_BIN_BIT(i);
+	mm_set_next(h, lists[i]);
+	lists[i] = h;
+	*bitmap |= mm_bin_bit(i);
 }
 #else
 void mm_add_to_free(header_t* h) {
-	size_t s = MM_GET_SIZE(h);
+	region_t* reg = mm_get_reg(h);
+	free_list_t* free = &reg->arena->free;
+	header_t** lists = free->start;
+	free_map_t* bitmap = &free->bitmap;
+
+	size_t s = mm_get_size(h);
 	size_t i = mm_idx_from_size(s);
-	header_t* old_head = mm_free_lists[i];
+	header_t* old_head = lists[i];
 	if (old_head) {
-		MM_SET_PREV(mm_free_lists[i], h);
+		mm_set_prev(lists[i], h);
 	}
 
-	MM_SET_NEXT(h, mm_free_lists[i]);
-	MM_SET_PREV(h, NULL);
-	mm_free_lists[i] = h;
-	mm_free_map |= MM_BIN_BIT(i);
+	mm_set_next(h, lists[i]);
+	mm_set_prev(h, NULL);
+	lists[i] = h;
+	*bitmap |= mm_bin_bit(i);
 }
 #endif
 
 #ifdef MM_SAFE_REMOVE
 _Bool mm_remove_free(header_t* h) {
-	size_t s = MM_GET_SIZE(h);
+	region_t* reg = mm_get_reg(h);
+	free_list_t* free = &reg->arena->free;
+	header_t** lists = free->start;
+	free_map_t* bitmap = &free->bitmap;
+
+	size_t s = mm_get_size(h);
 	size_t i = mm_idx_from_size(s);
-	header_t** cur = &mm_free_lists[i];
+	header_t** cur = &lists[i];
 
 	while (*cur && *cur != h)
-		cur = MM_GET_NEXT_PTR(*cur);
+		cur = mm_get_next_ptr(*cur);
 
 	if (!*cur)
 		return 0;
 
-	*cur = MM_GET_NEXT(*cur);
+	*cur = mm_get_next(*cur);
 
-	if (!mm_free_lists[i])
-		mm_free_map &= ~MM_BIN_BIT(i);
+	if (!lists[i])
+		*bitmap &= ~mm_bin_bit(i);
 
 	return 1;
 }
 #else
 _Bool mm_remove_free(header_t* h) {
-	header_t* prev = MM_GET_PREV(h);
-	header_t* next = MM_GET_NEXT(h);
+	region_t* reg = mm_get_reg(h);
+	free_list_t* free = &reg->arena->free;
+	header_t** lists = free->start;
+	free_map_t* bitmap = &free->bitmap;
+
+	header_t* prev = mm_get_prev(h);
+	header_t* next = mm_get_next(h);
 
 	if (!prev) {
-		size_t i = mm_idx_from_size(MM_GET_SIZE(h));
-		mm_free_lists[i] = next;
+		size_t i = mm_idx_from_size(mm_get_size(h));
+		lists[i] = next;
 		if (next) {
-			MM_SET_PREV(next, NULL);
+			mm_set_prev(next, NULL);
 		} else {
-			mm_free_map &= ~MM_BIN_BIT(i);
+			*bitmap &= ~mm_bin_bit(i);
 		}
 	} else {
-		MM_SET_NEXT(prev, next);
+		mm_set_next(prev, next);
 		if (next) {
-			MM_SET_PREV(next, prev);
+			mm_set_prev(next, prev);
 		}
 	}
 
@@ -89,22 +106,27 @@ _Bool mm_remove_free(header_t* h) {
 #endif
 
 header_t* mm_find_fit(size_t s) {
+	arena_t* arena = &mm_arena;
+	free_list_t* free = &arena->free;
+	header_t** lists = free->start;
+	free_map_t* bitmap = &free->bitmap;
+
 	size_t i = mm_idx_from_size(s);
 	header_t** cur;
 
 	while (i < MM_BIN_COUNT) {
-		free_map_t mask = mm_free_map & ((free_map_t)-1 << i);
+		free_map_t mask = *bitmap & ((free_map_t)-1 << i);
 		if (!mask)
 			return NULL;
 		i = __builtin_ctz(mask);
 
-		cur = &mm_free_lists[i];
+		cur = &lists[i];
 
 		while (*cur) {
-			if (MM_GET_SIZE(*cur) >= s)
+			if (mm_get_size(*cur) >= s)
 				break;
 
-			cur = MM_GET_NEXT_PTR(*cur);
+			cur = mm_get_next_ptr(*cur);
 		}
 
 		if (*cur) {
@@ -121,8 +143,8 @@ header_t* mm_find_fit(size_t s) {
 	header_t* ret = *cur;
 	mm_remove_free(ret);
 
-	if (!mm_free_lists[i])
-		mm_free_map &= ~MM_BIN_BIT(i);
+	if (!lists[i])
+		*bitmap &= ~mm_bin_bit(i);
 
 	return ret;
 }

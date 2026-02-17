@@ -29,29 +29,38 @@ inline void mm_add_alloced(size_t n, _Bool mmap) {
 
 void mm_print_alloced(void) {
 	char buf[64];
-	header_t* h = mm_heap_start;
-	header_t* f;
-	size_t s;
+	arena_t* arena = &mm_arena;
+	region_t* reg = arena->start;
 
-	printf("Heap:\n");
-	while ((void*)h < mm_heap_end) {
-		if (MM_IS_FREE(h)) {
-			h = MM_NEXT_HEADER(h);
-			continue;
+	while (reg) {
+		void* reg_end = mm_get_reg_end(reg);
+
+		header_t* h = reg->start;
+		header_t* f;
+		size_t s;
+
+		printf("Heap:\n");
+		while ((void*)h < reg_end) {
+			if (mm_is_free(h)) {
+				h = mm_next_header(h);
+				continue;
+			}
+
+			s = mm_get_size(h);
+			f = h->prev;
+
+			if (h != f->prev) {
+				fprintf(stderr, "header->prev MISMATCH at %p\n", (void*)h);
+				MM_ABORT();
+			}
+
+			format_size(buf, s);
+			printf("%s | %p | size=%s\n", mm_is_free(h) ? "FREE" : "USED", (void*)h, buf);
+
+			h = mm_next_header(h);
 		}
 
-		s = MM_GET_SIZE(h);
-		f = h->prev;
-
-		if (h != f->prev) {
-			fprintf(stderr, "header->prev MISMATCH at %p\n", (void*)h);
-			MM_ABORT();
-		}
-
-		format_size(buf, s);
-		printf("%s | %p | size=%s\n", MM_IS_FREE(h) ? "FREE" : "USED", (void*)h, buf);
-
-		h = MM_NEXT_HEADER(h);
+		reg = reg->next;
 	}
 }
 
@@ -59,22 +68,23 @@ void mm_print_free(void) {
 	header_t* prev = NULL;
 	int steps = 0;
 	char buf[64];
-
+	header_t** lists = (&(mm_arena.free))->start;
+	
 	for (size_t i = 0; i < MM_BIN_COUNT; i++) {
-		header_t* cur = mm_free_lists[i];
+		header_t* cur = lists[i];
 
 		printf("Free List %zu:\n", i);
 		while (cur) {
 			steps++;
-			format_size(buf, MM_GET_SIZE(cur));
-			printf("prev=0x%p | size=%s | next=0x%p\n", (void*)prev, buf, (void*)MM_GET_NEXT(cur));
+			format_size(buf, mm_get_size(cur));
+			printf("prev=0x%p | size=%s | next=0x%p\n", (void*)prev, buf, (void*)mm_get_next(cur));
 
 			if (steps >= 10000) {
 				fprintf(stderr, "Over 10000 entries in the free list, potential cycle\n");
 			}
 
 			prev = cur;
-			cur = MM_GET_NEXT(cur);
+			cur = mm_get_next(cur);
 		}
 	}
 }
@@ -86,8 +96,6 @@ void mm_print_stats(void) {
 	size_t tot_bytes = heap_bytes + mmap_bytes;
 	size_t tot_allocs = heap_allocs + mmap_allocs;
 
-	format_size(buf, mm_heap_size);
-	printf("Heap size is %s\n", buf);
 	format_size(buf, tot_bytes);
 	printf("%zu blocks were allocated %s\n", tot_allocs, buf);
 	format_size(buf, heap_bytes);

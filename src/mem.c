@@ -9,7 +9,7 @@ void* malloc(size_t size) {
 
 	if (size >= MMAP_THRESHOLD) {
 		void* p = mm_mmap_alloc(size);
-		mm_write_canary(MM_HEADER(p));
+		mm_write_canary(mm_header(p));
 		mm_poison_alloc(p);
 
 		mm_add_alloced(size, 1);
@@ -19,12 +19,12 @@ void* malloc(size_t size) {
 
 	size = MM_MAX(size, MM_MIN_PAYLOAD);
 	void* p = mm_malloc_block(size);
-	mm_write_canary(MM_HEADER(p));
+	mm_write_canary(mm_header(p));
 	mm_poison_alloc(p);
 
 	mm_add_alloced(size, 0);
 
-	MM_RUN_CHECKS();
+	mm_run_checks();
 	return p;
 }
 
@@ -32,12 +32,13 @@ void free(void* ptr) {
 	if (!ptr)
 		return;
 
-	header_t* header = MM_HEADER(ptr);
+	header_t* header = mm_header(ptr);
 	mm_check_canary(header);
 
-	// Debug mode check for pointer validity
 #ifdef MM_DEBUG
-	if (((void*)header < mm_heap_start || (void*)header >= mm_heap_end) && !MM_IS_MMAP(header)) {
+	region_t* reg = mm_get_reg(header);
+	void* reg_end = mm_get_reg_end(reg);
+	if (((void*)header < reg->start || (void*)header >= reg_end) && !mm_is_mmap(header)) {
 		fprintf(stderr, "Ptr is not in the accepted range\n");
 		fflush(stderr);
 		MM_ABORT();
@@ -46,13 +47,13 @@ void free(void* ptr) {
 
 	mm_poison_free(ptr);
 
-	if (MM_IS_MMAP(header)) {
+	if (mm_is_mmap(header)) {
 		mm_mmap_free(header);
 		return;
 	}
 
 	// Double free check
-	if (MM_IS_FREE(header)) {
+	if (mm_is_free(header)) {
 #ifdef MM_DEBUG
 		fprintf(stderr, "Double free detected\n");
 		fflush(stderr);
@@ -62,12 +63,12 @@ void free(void* ptr) {
 #endif
 	}
 
-	header->size = MM_SET_FREE(header->size);
+	header->size = mm_set_free(header->size);
 	mm_coalesce_prev(&header);
 	mm_coalesce_next(header);
 	mm_add_to_free(header);
 
-	MM_RUN_CHECKS();
+	mm_run_checks();
 }
 
 void* realloc(void* ptr, size_t size) {
@@ -80,8 +81,8 @@ void* realloc(void* ptr, size_t size) {
 	if (!ptr)
 		return malloc(size);
 
-	header_t* header = MM_HEADER(ptr);
-	size_t old_size = MM_GET_SIZE(header);
+	header_t* header = mm_header(ptr);
+	size_t old_size = mm_get_size(header);
 	size = MM_ALIGN_UP(size);
 
 	if (size == old_size) {
@@ -91,14 +92,14 @@ void* realloc(void* ptr, size_t size) {
 		mm_shrink_block(header, size, 0);
 
 		mm_write_canary(header);
-		MM_RUN_CHECKS();
+		mm_run_checks();
 		return ptr;
 	}
 
 	if (mm_grow_block(header, size, 0)) {
 		mm_write_canary(header);
 		mm_add_alloced(size - old_size, 0);
-		MM_RUN_CHECKS();
+		mm_run_checks();
 		return ptr;
 	}
 
@@ -114,8 +115,8 @@ void* realloc(void* ptr, size_t size) {
 	free(ptr);
 
 	mm_add_alloced(size, 0);
-	mm_write_canary(MM_HEADER(new_ptr));
-	MM_RUN_CHECKS();
+	mm_write_canary(mm_header(new_ptr));
+	mm_run_checks();
 
 	return new_ptr;
 }
@@ -143,8 +144,8 @@ void* calloc(size_t size, size_t n) {
 		return NULL;
 
 	memset(ptr, 0, tot_size);
-	mm_write_canary(MM_HEADER(ptr));
-	MM_RUN_CHECKS();
+	mm_write_canary(mm_header(ptr));
+	mm_run_checks();
 
 	return ptr;
 }

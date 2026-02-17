@@ -5,17 +5,27 @@
 #include <string.h>
 
 void mm_debug_test(void) {
-	mm_heap_check();
-	mm_free_check();
+	arena_t* arena = &mm_arena;
+	region_t* reg;
+
+	while (arena) {
+		reg = arena->start;
+		while (reg) {
+			mm_reg_check(reg);
+			reg = reg->next;
+		}
+
+		mm_free_check(&arena->free);
+	}
 }
 
 #ifdef MM_ENABLE_CANARIES
 inline void mm_write_canary(header_t* h) {
-	size_t* c = MM_CANARY(h);
+	size_t* c = mm_canary(h);
 	memset(c, MM_CANARY_BYTE, MM_CANARY_SIZE);
 }
 inline void mm_check_canary(header_t* h) {
-	size_t* c = MM_CANARY(h);
+	size_t* c = mm_canary(h);
 	size_t len = MM_ALIGNMENT / sizeof(size_t);
 	size_t w = (size_t)-1 / 0xFF * MM_CANARY_BYTE;
 
@@ -26,9 +36,15 @@ inline void mm_check_canary(header_t* h) {
 		}
 	}
 }
+#else
+inline void mm_write_canary(header_t* h) {}
+inline void mm_check_canary(header_t* h) {}
+#endif
+
+#ifdef MM_ENABLE_POISONING
 inline void mm_poison_free(void* p) {
-	header_t* h = MM_HEADER(p);
-	size_t s = MM_GET_SIZE(h);
+	header_t* h = mm_header(p);
+	size_t s = mm_get_size(h);
 
 	// Skips past the next pointer if in release mode
 #ifndef MM_DEBUG
@@ -36,7 +52,7 @@ inline void mm_poison_free(void* p) {
 	s -= sizeof(void*);
 #endif
 
-	if (s == 0 || (s > mm_heap_size && !MM_IS_MMAP(h))) {
+	if (s == 0 || (s > MM_REG_FREE && !mm_is_mmap(h))) {
 		fprintf(stderr, "Invalid block size %zu\n", s);
 		MM_ABORT();
 	}
@@ -44,10 +60,10 @@ inline void mm_poison_free(void* p) {
 	memset(p, MM_POISON_FREE_BYTE, s);
 }
 inline void mm_poison_alloc(void* p) {
-	header_t* h = MM_HEADER(p);
-	size_t s = MM_GET_SIZE(h);
+	header_t* h = mm_header(p);
+	size_t s = mm_get_size(h);
 
-	if (s == 0 || (s > mm_heap_size && !MM_IS_MMAP(h))) {
+	if (s == 0 || (s > MM_REG_FREE && !mm_is_mmap(h))) {
 		fprintf(stderr, "Invalid block size %zu\n", s);
 		fprintf(stderr, "%p\n", p);
 		MM_ABORT();
@@ -74,24 +90,23 @@ inline void mm_poison_alloc_area(void* p, size_t s) {
 	memset(p, MM_POISON_ALLOC_BYTE, s);
 }
 #else
-inline void mm_write_canary(header_t* h) {}
-inline void mm_check_canary(header_t* h) {}
 inline void mm_poison_free(void* p) {}
 inline void mm_poison_alloc(void* p) {}
 inline void mm_poison_free_area(void* p, size_t s) {}
 inline void mm_poison_alloc_area(void* p, size_t s) {}
 #endif
 
-void mm_heap_check(void) {
-	header_t* cur = (header_t*)mm_heap_start;
+void mm_reg_check(region_t* reg) {
+	header_t* cur = (header_t*)reg->start;
+	void* reg_end = mm_get_reg_end(reg);
 	header_t* next;
 	for (;;) {
-		size_t size = MM_GET_SIZE(cur);
+		size_t size = mm_get_size(cur);
 
 		assert((uintptr_t)cur % MM_ALIGNMENT == 0);
 		assert(size % MM_ALIGNMENT == 0);
-		next = MM_NEXT_HEADER(cur);
-		if ((void*)next >= mm_heap_end) {
+		next = mm_next_header(cur);
+		if ((void*)next >= reg_end) {
 			break;
 		}
 
@@ -100,12 +115,13 @@ void mm_heap_check(void) {
 	}
 }
 
-void mm_free_check(void) {
+void mm_free_check(free_list_t* free) {
+	header_t** list = free->start;
 	for (size_t i = 0; i < MM_BIN_COUNT; i++) {
-		header_t* cur = mm_free_lists[i];
+		header_t* cur = list[i];
 		while (cur) {
-			assert(MM_IS_FREE(cur));
-			cur = MM_GET_NEXT(cur);
+			assert(mm_is_free(cur));
+			cur = mm_get_next(cur);
 		}
 	}
 }
