@@ -6,9 +6,8 @@
 
 void mm_debug_test(void) {
 	arena_t* arena = &mm_arena;
-	region_t* reg;
+	region_t* reg = arena->reg;
 
-	reg = arena->start;
 	while (reg) {
 		mm_reg_check(reg);
 		reg = reg->next;
@@ -44,12 +43,6 @@ inline void mm_poison_free(void* p) {
 	header_t* h = mm_header(p);
 	size_t s = mm_get_size(h);
 
-	// Skips past the next pointer if in release mode
-#ifndef MM_DEBUG
-	p = (void*)((uint8_t*)p + sizeof(void*));
-	s -= sizeof(void*);
-#endif
-
 	if (s == 0 || (s > MM_REG_FREE && !mm_is_mmap(h))) {
 		fprintf(stderr, "Invalid block size %zu\n", s);
 		MM_ABORT();
@@ -73,12 +66,6 @@ inline void mm_poison_free_area(void* p, size_t s) {
 	if (s == 0)
 		return;
 
-	// Skips past the next pointer if in release mode
-#ifndef MM_DEBUG
-	p = (void*)((uint8_t*)p + sizeof(void*));
-	s -= sizeof(void*);
-#endif
-
 	memset(p, MM_POISON_FREE_BYTE, s);
 }
 inline void mm_poison_alloc_area(void* p, size_t s) {
@@ -95,7 +82,7 @@ inline void mm_poison_alloc_area(void* p, size_t s) {}
 #endif
 
 void mm_reg_check(region_t* reg) {
-	header_t* cur = (header_t*)reg->start;
+	header_t* cur = mm_get_reg_start(reg);
 	void* reg_end = mm_get_reg_end(reg);
 	header_t* next;
 	for (;;) {

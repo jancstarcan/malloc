@@ -33,7 +33,12 @@ void mm_coalesce_next(header_t* h) {
 	void* reg_end = mm_get_reg_end(reg);
 
 	header_t* next = mm_next_header(h);
-	if (!mm_is_free(next) || (void*)next >= reg_end) {
+
+	if ((void*)next >= reg_end) {
+		return;
+	}
+
+	if (!mm_is_free(next)) {
 		return;
 	}
 

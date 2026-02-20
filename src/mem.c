@@ -43,7 +43,8 @@ void free(void* ptr) {
 #ifdef MM_DEBUG
 	region_t* reg = mm_get_reg(header);
 	void* reg_end = mm_get_reg_end(reg);
-	if (((void*)header < reg->start || (void*)header >= reg_end)) {
+	void* reg_start = mm_get_reg_start(reg);
+	if (((void*)header < reg_start || (void*)header >= reg_end)) {
 		fprintf(stderr, "Ptr is not in the accepted range\n");
 		fflush(stderr);
 		MM_ABORT();

@@ -30,12 +30,12 @@ inline void mm_add_alloced(size_t n, _Bool mmap) {
 void mm_print_alloced(void) {
 	char buf[64];
 	arena_t* arena = &mm_arena;
-	region_t* reg = arena->start;
+	region_t* reg = arena->reg;
 
 	while (reg) {
 		void* reg_end = mm_get_reg_end(reg);
 
-		header_t* h = reg->start;
+		header_t* h = mm_get_reg_start(reg);
 		header_t* f;
 		size_t s;
 
@@ -69,7 +69,7 @@ void mm_print_free(void) {
 	int steps = 0;
 	char buf[64];
 	header_t** lists = (&(mm_arena.free))->start;
-	
+
 	for (size_t i = 0; i < MM_BIN_COUNT; i++) {
 		header_t* cur = lists[i];
 

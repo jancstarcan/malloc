@@ -59,10 +59,14 @@ typedef uint64_t free_map_t;
 #error "Too many bins for bitmap"
 #endif
 
+#define MM_SLAB_COUNT 32
+
 typedef struct header header_t;
 typedef struct free_list free_list_t;
+typedef struct mapping mapping_t;
 typedef struct region region_t;
 typedef struct arena arena_t;
+typedef struct slab slab_t;
 
 #ifdef MM_DEBUG
 struct header {
@@ -86,22 +90,35 @@ struct free_list {
 };
 
 struct region {
-	void* start;
 	region_t* next;
 	arena_t* arena;
+	_Bool is_slab;
+	_Bool is_free;
+};
+
+struct slab {
+	uint64_t bitmap[32];
+	uint16_t block_size;
+	uint16_t free_count;
 };
 
 struct arena {
 	free_list_t free;
-	size_t reg_count;
-	region_t* start;
+	size_t map_count;
+	region_t* reg;
 	region_t* tail;
+
+	slab_t slabs[MM_SLAB_COUNT];
+	size_t slab_map_count;
+	mapping_t* slab_map;
+	mapping_t* slab_tail;
 };
 
 extern arena_t mm_arena;
 extern _Bool mm_arena_initialized;
 
 #define MM_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MM_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MM_ALIGNMENT alignof(max_align_t)
 #define MM_ALIGN_UP(x) (((x) + MM_ALIGNMENT - 1) & ~(MM_ALIGNMENT - 1))
 
@@ -121,7 +138,7 @@ extern _Bool mm_arena_initialized;
 #endif
 
 #define MM_KB(x) ((size_t)(x) * 1024)
-#define MM_REG_SIZE MM_KB(512)
+#define MM_REG_SIZE MM_KB(256)
 #define MM_REG_CAP MM_KB(4096)
 #define MM_REG_METADATA MM_ALIGN_UP(sizeof(region_t))
 #define MM_REG_FREE (MM_REG_SIZE - MM_REG_METADATA)
@@ -211,7 +228,7 @@ static inline header_t* mm_get_prev(header_t* h) { return *mm_get_prev_ptr(h); }
 
 static inline region_t* mm_get_reg(void* ptr) { return (region_t*)((uintptr_t)ptr & MM_REG_MASK); }
 static inline void* mm_get_reg_end(region_t* reg) { return (void*)((uint8_t*)reg + MM_REG_SIZE); }
-static inline header_t* mm_get_reg_header(region_t* reg) { return (header_t*)((uint8_t*)reg + MM_REG_METADATA); }
+static inline void* mm_get_reg_start(region_t* reg) { return (void*)((uint8_t*)reg + MM_REG_METADATA); }
 
 static inline header_t* mm_header(void* payload) { return (header_t*)((uint8_t*)payload - MM_HEADER_SIZE); }
 static inline size_t* mm_canary(header_t* h) { return (size_t*)((uint8_t*)h + MM_HEADER_SIZE + mm_get_size(h)); }
@@ -271,5 +288,10 @@ void mm_add_alloced(size_t n, _Bool mmap);
 void mm_print_alloced(void);
 void mm_print_free(void);
 void mm_print_stats(void);
+
+// slabs.c
+
+// asserts
+_Static_assert((MM_REG_SIZE & (MM_REG_SIZE - 1)) == 0, "MM_REG_SIZE must be a power of two");
 
 #endif
