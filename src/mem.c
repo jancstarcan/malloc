@@ -23,7 +23,6 @@ void* malloc(size_t size) {
 	mm_poison_alloc(p);
 
 	mm_add_alloced(size, 0);
-
 	mm_run_checks();
 	return p;
 }
@@ -117,6 +116,7 @@ void* realloc(void* ptr, size_t size) {
 
 	mm_add_alloced(size, 0);
 	mm_write_canary(mm_header(new_ptr));
+
 	mm_run_checks();
 
 	return new_ptr;

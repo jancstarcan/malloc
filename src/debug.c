@@ -66,13 +66,31 @@ inline void mm_poison_free_area(void* p, size_t s) {
 	if (s == 0)
 		return;
 
-	memset(p, MM_POISON_FREE_BYTE, s);
+	region_t* reg = mm_get_reg(p);
+	void* reg_end = mm_get_reg_end(reg);
+
+	if ((uint8_t*)p + s > (uint8_t*)reg_end) {
+		s = (uint8_t*)reg_end - (uint8_t*)p;
+	}
+
+	if (s > 0) {
+		memset(p, MM_POISON_FREE_BYTE, s);
+	}
 }
 inline void mm_poison_alloc_area(void* p, size_t s) {
 	if (s == 0)
 		return;
 
-	memset(p, MM_POISON_ALLOC_BYTE, s);
+	region_t* reg = mm_get_reg(p);
+	void* reg_end = mm_get_reg_end(reg);
+
+	if ((uint8_t*)p + s > (uint8_t*)reg_end) {
+		s = (uint8_t*)reg_end - (uint8_t*)p;
+	}
+
+	if (s > 0) {
+		memset(p, MM_POISON_ALLOC_BYTE, s);
+	}
 }
 #else
 inline void mm_poison_free(void* p) {}

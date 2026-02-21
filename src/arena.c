@@ -59,15 +59,17 @@ _Bool mm_grow_arena(arena_t* arena) {
 		reg->arena = arena;
 
 		header_t* h = mm_get_reg_start(reg);
-		h->size = mm_set_xfree(MM_REG_FREE);
+		h->size = mm_set_xfree(MM_REG_FREE - MM_METADATA_SIZE);
 		h->prev = NULL;
 		mm_set_prev(h, NULL);
 		mm_set_next(h, NULL);
 
 		mm_add_to_free(h);
 
-		if (prev)
+		if (prev) {
 			prev->next = reg;
+		}
+
 		prev = reg;
 		reg = mm_get_reg_end(reg);
 	}
