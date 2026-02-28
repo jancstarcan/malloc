@@ -1,0 +1,42 @@
+#include "interface.h"
+
+static inline void init_slab(slab_t* slab, size_t block_size) {
+	
+}
+
+slab_t* mm_alloc_slab(size_t size, arena_t* arena) {
+	size = (size + MM_SLAB_BASE - 1) & ~(MM_SLAB_BASE - 1);
+	slab_list_t* list = &arena->slabs[size / MM_SLAB_SIZE];
+
+	if (list->free) {
+		return list->free;
+	}
+
+	region_t* reg = arena->slab_reg;
+	slab_region_t* reg_meta = mm_get_slab_reg_metadata(reg);
+	while (reg) {
+		if (reg_meta->slabs_bitmap) {
+			break;
+		}
+
+		reg = reg->next;
+		reg_meta = mm_get_slab_reg_metadata(reg);
+	}
+
+	if (!reg) {
+		reg = arena->slab_tail;
+		if (!mm_add_regions(arena, 1)) {
+			return NULL;
+		}
+
+		if (!reg) {
+			reg = arena->slab_reg;
+		} else {
+			reg = reg->next;
+		}
+	}
+
+	
+
+	return NULL;
+}
