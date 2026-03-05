@@ -112,7 +112,7 @@ LD_PRELOAD=./malloc.so <cmd>  # Test with real programs (single-threaded only)
 ## TODO
 - [X] Region-based arenas (replace global sbrk heap)
 - [X] Slabs for small allocations
-- [X] Imrpove free lists
+- [X] Improve free lists
 - [ ] Improve test coverage
 - [ ] Add some benchmarking
 - [ ] Thread-safety (per-thread arenas)
