@@ -1,7 +1,7 @@
 CC = gcc
 
 FLAGS = -D_GNU_SOURCE -O3 -std=c11
-DEBUG = -D_GNU_SOURCE -DMM_DEBUG -std=c11 -Wall -Wextra -Wpedantic -ggdb
+DEBUG = -D_GNU_SOURCE -std=c11 -Wall -Wextra -Wpedantic -ggdb
 
 SRCDIR = src
 BUILDDIR = .
@@ -35,7 +35,7 @@ dstatlib:
 	$(MAKE) MODE=dstatlib CFLAGS="$(DEBUG)" build-static
 
 bear: clean
-	bear -- make debug
+	bear -- make release
 
 # Build logic
 MODE ?= release

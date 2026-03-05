@@ -105,8 +105,7 @@ _Bool mm_remove_free(header_t* h) {
 }
 #endif
 
-header_t* mm_find_fit(size_t s) {
-	arena_t* arena = &mm_arena;
+header_t* mm_find_fit(size_t s, arena_t* arena) {
 	free_list_t* free = &arena->free;
 	header_t** lists = free->start;
 	free_map_t* bitmap = &free->bitmap;

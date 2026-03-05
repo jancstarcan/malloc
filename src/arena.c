@@ -32,14 +32,23 @@ _Bool mm_init_arena(void) {
 	return 1;
 }
 
-_Bool mm_grow_arena(arena_t* arena) {
+static inline void init_slabs(slab_region_t* reg) {
+	reg->slabs_bitmap = MM_SLAB_BITMAP((uint64_t)-1);
+	for (size_t i = 0; i < MM_SLABS_IN_REG - 1; i++) {
+		slab_t* slab = &reg->slabs_metadata[i];
+		*slab = (slab_t){0};
+		slab->start = mm_get_slab_mem_from_idx(reg, i);
+	}
+}
+
+static inline _Bool add_regions(arena_t* arena, region_t** start, region_t** tail, size_t* map_count, _Bool is_slab) {
 	size_t new_size;
-	if (arena->map_count >= sizeof(size_t) * CHAR_BIT) {
+	if (*map_count >= sizeof(size_t) * CHAR_BIT) {
 		new_size = MM_REG_CAP;
-	} else if (MM_REG_SIZE > (SIZE_MAX >> arena->map_count)) {
+	} else if (MM_REG_SIZE > (SIZE_MAX >> *map_count)) {
 		new_size = MM_REG_CAP;
 	} else {
-		new_size = MM_REG_SIZE << arena->map_count;
+		new_size = MM_REG_SIZE << *map_count;
 		if (new_size > MM_REG_CAP) {
 			new_size = MM_REG_CAP;
 		}
@@ -52,11 +61,15 @@ _Bool mm_grow_arena(arena_t* arena) {
 	new = mm_reg_align(new);
 
 	region_t* reg = (region_t*)new;
-	region_t* prev = arena->tail;
+	region_t* prev = *tail;
 	void* mmap_end = (void*)((uint8_t*)new + new_size);
 
 	while ((void*)reg < mmap_end) {
 		reg->arena = arena;
+		if (is_slab) {
+			reg->is_slab = 1;
+			init_slabs((slab_region_t*)reg);
+		}
 
 		header_t* h = mm_get_reg_start(reg);
 		h->size = mm_set_xfree(MM_REG_FREE - MM_METADATA_SIZE);
@@ -75,13 +88,18 @@ _Bool mm_grow_arena(arena_t* arena) {
 	}
 
 	prev->next = NULL;
-	arena->tail = prev;
-	if (!arena->reg)
-		arena->reg = (region_t*)new;
+	*tail = prev;
+	if (!*start)
+		*start = (region_t*)new;
 
-	arena->map_count++;
+	(*map_count)++;
 
 	return 1;
+}
+
+_Bool mm_grow_arena(arena_t* arena) { return add_regions(arena, &arena->reg, &arena->tail, &arena->map_count, 0); }
+_Bool mm_grow_slabs(arena_t* arena) {
+	return add_regions(arena, &arena->slab_reg, &arena->slab_tail, &arena->slab_map_count, 1);
 }
 
 void* mm_mmap_alloc(size_t size) {

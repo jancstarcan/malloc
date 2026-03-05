@@ -104,15 +104,10 @@ _Bool mm_grow_block(header_t* h, size_t size, _Bool is_free) {
 	mm_remove_free(next);
 
 	if (free_space - size < MM_MIN_SPLIT) {
-		// The entire next block gets absorbed
-		mm_poison_alloc_area((void*)next, MM_HEADER_SIZE + next_size);
 		h->size = mm_clr_flags(free_space);
 		mm_link_next_header(h);
 	} else {
-		// The next block gets split
 		h->size = mm_clr_flags(size);
-		void* poison_start = (uint8_t*)mm_payload(h) + old_size;
-		mm_poison_alloc_area(poison_start, size - old_size);
 
 		next = mm_next_header(h);
 		next->size = mm_set_xfree(tot_size - size);
@@ -131,15 +126,13 @@ _Bool mm_grow_block(header_t* h, size_t size, _Bool is_free) {
 }
 
 void* mm_malloc_block(size_t size) {
-	size = MM_ALIGN_UP(size);
-
 	if (!mm_arena_initialized) {
 		if (!mm_init_arena()) {
 			return NULL;
 		}
 	}
 
-	header_t* free_block = mm_find_fit(size);
+	header_t* free_block = mm_find_fit(size, &mm_arena);
 
 	if (!free_block) {
 		if (!mm_grow_arena(&mm_arena)) {

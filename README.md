@@ -5,56 +5,74 @@ A custom implementation of malloc/free/realloc/calloc using segregated free list
 - **Segregated free lists** - 32 size classes with bitmap search
 - **Size classes** - Exponential bins starting from 16 bytes
 - **Boundary-tag coalescing** - Each block header stores a pointer to the previous physical block, allowing backward traversal without footers.
-- **mmap for large allocations** - Allocations ≥128KiB bypass the heap and get their own page-aligned block of memory
-- **Debug mode** - Canaries, poisoning, and integrity checks
-
-## Structure
-The individual allocations get their memory from regions. Regions are fixed size, 512KiB chunks of memory, stored in arenas.
-Currently there's only one global arena, later they will be assigned to threads.
-
-### Statistics
-In debug mode it keeps track of:
-- Heap size
-- Number of allocations
-- Number of allocated bytes
+- **Slabs for small allocations** - Slabs are used for smaller allocations. This eliminates the need for per-block metadata, coalescing and a free list
+- **mmap for large allocations** - Large allocations bypass the heap and get their own page-aligned block of memory
 
 ## Block Layout
-**Normal:**
-
 | Header | Payload |
 |--------|---------|
 
 Next and previous pointers are stored in the payload
 
-**Debug:**
+Headers contain a `size_t` size with encoded flags and a pointer to the previous block
 
-| Header | Payload | Canary |
-|--------|---------|--------|
+## Slab Layout
+| region metadata \| slab bitmap \| slab\_metadata |
+|--------------------------------------------------|
+| Slab 1                                           |
+| Slab 2                                           |
+| ...                                              |
 
-Next and previous pointers are stored in the header
+Since the first would-be slab is wasted due to alignment constraints,
+it's repurposed to store the metadata for all slabs.
+This saves `sizeof(slab_t)` bytes per slab.
 
-Headers contain a size\_t size with encoded flags, a pointer to the previous block
-and in debug mode only pointers to the previous and next free list blocks.
+All slabs are `MM_SLAB_SIZE` aligned, this allows for O(1) slab lookup.
 
 ## Memory Management
-- **Arena growth**: Starts with 512KiB, mmap calls double in size each time, up to 4MiB
-- **Small allocations** (<128KiB): Allocated from arenas
-- **Large allocations** (≥128KiB): Direct mmap allocation, munmap'd on free
+- **Arena growth**: Starts at `MM_REG_SIZE`, mmap calls double in size each time, up to `MM_REG_CAP`
+- **Small allocations**: Allocated from slabs
+- **Medium allocations**: Allocated from general-purpose regions
+- **Large allocations**: Direct mmap allocation, munmap'd on free
 - **Coalescing**: Forward and backward coalescing on every free
 
-## Segregated Free Lists
-- 32 bins tracked with a 32-bit bitmap
-- Exponential size classes (powers of 2)
-- First-fit allocation within each bin
-- O(1) bin lookup using `__builtin_ctz()`
+The sizes are defined by `MM_SLAB_THRESHOLD` and `MM_MMAP_THRESHOLD`, and may change.
 
-## Debug Features
-When compiled with `-DMM_DEBUG`:
+## Free List
+The allocator uses segregated free lists with variable-size bins:
+
+- **Bin layout**:
+  - Starts at `MM_SLAB_THRESHOLD` bytes (smallest bin not included)
+  - Each bin class doubles in base size
+  - Each bin class is subdivided into 4 evenly spaced steps
+  - Blocks are fixed to the free list's size classes
+- **Allocation**:
+  - Each allocation is rounded up to the nearest size class
+  - No scanning of the free list is required
+  - O(1) lookup using a bitmap and bit operations (`__builtin_ctz()`)
+
+**Example (first bin class starting at 512 bytes with 4 subdivisions):**
+
+| Bin | Block Size (bytes) |
+|-----|------------------|
+| 1   | 640              |
+| 2   | 768              |
+| 3   | 896              |
+| 4   | 1024             |
+| ... | ...              |
+
+## Debug Mode
+Debug mode was removed in favor of performance and simpler layout
+
+When compiled with `-DMM_DEBUG` it used to have:
 - **Canaries**: Detect buffer overflows
 - **Poisoning**: 0xAA for allocated, 0xDD for freed memory
-- **Heap integrity**: Verify all block headers/prev pointers
+- **Heap integrity checks**: Verify all block headers/prev pointers
 - **Free list checks**: Ensures all free blocks are properly marked
 - **Statistics**: Tracks heap size, allocation count, bytes allocated
+
+Debug mode couldn't work well with slabs - it would either be incomplete or significantly slower.
+For debugging, use Valgrind or AddressSanitizer. The old debug implementation is available in tag v1.3 and earlier.
 
 ## Design Invariants
 - All blocks are `max_align_t` aligned
@@ -78,6 +96,7 @@ make rdynlib    # Release shared library
 make dstatlib   # Debug static library
 make rstatlib   # Release static library
 ```
+> Debug builds use -O0 -g with stricter warnings
 
 ## Tests
 ```bash
@@ -87,15 +106,16 @@ LD_PRELOAD=./malloc.so <cmd>  # Test with real programs (single-threaded only)
 
 ## Known Limitations
 - Linux only (uses mmap)
+- Requires GCC/Clang (uses `__builtin_ctz`, `__builtin_clz`)
 - Single-threaded (no locks or thread-local arenas)
-- Requires GCC/Clang (uses `__builtin_ctz`, `__builtin_clzll`)
 
 ## TODO
 - [X] Region-based arenas (replace global sbrk heap)
-- [ ] Thread-safety (per-thread arenas)
+- [X] Slabs for small allocations
+- [X] Imrpove free lists
 - [ ] Improve test coverage
-- [ ] Add benchmarking suite
-- [ ] Implement some kind of defered coalescing
+- [ ] Add some benchmarking
+- [ ] Thread-safety (per-thread arenas)
 
 ## Non-Goals
 - Production use or performance competitive with glibc/jemalloc
