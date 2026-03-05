@@ -42,12 +42,6 @@
  *   - The free list must not include duplicates
  *   - All blocks are MM_ALIGNMENT-aligned
  *   - header->prev must always be correct
- *
- * Slabs:
- *   For small allocations, under MM_SLAB_THRESHOLD, slab allocation is used.
- *   Slabs are returned by the "slab allocator", which uses the same type of regions as normal allocations,
- *   so any pointer can be masked to obtain the region, and then again to get to the slab.
- *   Only one free slab should be kept in slab_list_t.free, all others should be returned to the slab allocator.
  */
 
 #define MM_BIN_COUNT 32
@@ -83,9 +77,6 @@ typedef struct free_list free_list_t;
 typedef struct mapping mapping_t;
 typedef struct region region_t;
 typedef struct arena arena_t;
-typedef struct slab_list slab_list_t;
-typedef struct slab slab_t;
-typedef struct slab_region slab_region_t;
 
 #ifdef MM_DEBUG
 struct header {
@@ -111,25 +102,6 @@ struct free_list {
 struct region {
 	region_t* next;
 	arena_t* arena;
-	_Bool is_slab;
-};
-
-struct slab {
-	slab_t* next;
-	uint64_t bitmap[MM_SLAB_BITMAP_COUNT];
-	uint32_t bitmap_bitmap;
-	uint16_t block_size;
-	uint16_t free_count;
-};
-
-struct slab_region {
-	uint64_t slabs_bitmap;
-};
-
-struct slab_list {
-	slab_t* full;
-	slab_t* part;
-	slab_t* free;
 };
 
 struct arena {
@@ -137,11 +109,6 @@ struct arena {
 	region_t* reg;
 	region_t* tail;
 	size_t map_count;
-
-	slab_list_t slabs[MM_SLAB_COUNT];
-	region_t* slab_reg;
-	region_t* slab_tail;
-	size_t slab_map_count;
 };
 
 extern arena_t mm_arena;
@@ -248,11 +215,6 @@ static inline region_t* mm_get_reg(void* ptr) { return (region_t*)((uintptr_t)pt
 static inline void* mm_get_reg_end(region_t* reg) { return (void*)((uint8_t*)reg + MM_REG_SIZE); }
 static inline void* mm_get_reg_start(region_t* reg) { return (void*)((uint8_t*)reg + MM_REG_METADATA); }
 
-static inline slab_t* mm_get_slab(void* ptr) { return (slab_t*)((uintptr_t)ptr & MM_SLAB_MASK); }
-static inline slab_region_t* mm_get_slab_reg_metadata(region_t* reg) {
-	return (slab_region_t*)((uint8_t*)reg + MM_REG_METADATA);
-}
-
 static inline header_t* mm_header(void* payload) { return (header_t*)((uint8_t*)payload - MM_HEADER_SIZE); }
 static inline size_t* mm_canary(header_t* h) { return (size_t*)((uint8_t*)h + MM_HEADER_SIZE + mm_get_size(h)); }
 static inline void* mm_payload(header_t* h) { return (void*)((uint8_t*)h + MM_HEADER_SIZE); }
@@ -314,10 +276,6 @@ void mm_add_alloced(size_t n, _Bool mmap);
 void mm_print_alloced(void);
 void mm_print_free(void);
 void mm_print_stats(void);
-
-// slabs.c
-slab_t* mm_alloc_slab(size_t size, arena_t* arena);
-void* mm_free_slab(slab_t* slab);
 
 // asserts
 _Static_assert((MM_REG_SIZE & (MM_REG_SIZE - 1)) == 0, "MM_REG_SIZE must be a power of two");
